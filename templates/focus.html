@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+{% block title %}Focus Mode — StudyMate{% endblock %}
+{% block extra_css %}
+<style>
+.focus-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
+.mode-tabs { display: flex; gap: 6px; margin-bottom: 20px; flex-wrap: wrap; }
+.mode-tab { padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg3); font-size: 0.82rem; cursor: pointer; color: var(--text2); transition: all 0.2s; }
+.mode-tab.active { background: var(--accent); border-color: var(--accent); color: white; }
+.session-entry { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; border-radius: var(--radius-sm); background: var(--bg3); margin-bottom: 5px; font-size: 0.83rem; }
+.ambient-btn { padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg3); font-size: 0.82rem; cursor: pointer; color: var(--text2); transition: all 0.2s; }
+.ambient-btn.active { border-color: var(--cyan); color: var(--cyan); background: rgba(34,211,238,0.1); }
+@media(max-width:900px){ .focus-layout { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page fade-in">
+  <div class="page-header">
+    <h1 class="page-title">Focus Mode ⏱</h1>
+    <p class="page-sub">Sessions tracked accurately — even when you switch tabs</p>
+  </div>
+  <div class="focus-layout">
+    <div>
+      <div class="mode-tabs">
+        <button class="mode-tab active" onclick="setMode(25,5,'Pomodoro',this)">🍅 Pomodoro 25m</button>
+        <button class="mode-tab" onclick="setMode(50,10,'Deep Work',this)">🧠 Deep Work 50m</button>
+        <button class="mode-tab" onclick="setMode(15,5,'Quick 15m',this)">⚡ Quick 15m</button>
+        <button class="mode-tab" onclick="setMode(90,20,'Flow 90m',this)">🌊 Flow 90m</button>
+      </div>
+
+      <div class="card" style="text-align:center;padding:32px 24px">
+        <div style="margin-bottom:14px">
+          <select id="subjectSelect" class="select" style="font-size:0.85rem">
+            <option value="">Select subject (optional)</option>
+          </select>
+        </div>
+
+        <div class="timer-ring">
+          <svg width="200" height="200" viewBox="0 0 200 200">
+            <circle class="timer-ring-bg" cx="100" cy="100" r="90"/>
+            <circle class="timer-ring-fill" id="timerRing" cx="100" cy="100" r="90"
+              style="stroke-dasharray:565;stroke-dashoffset:0"/>
+          </svg>
+          <div class="timer-text">
+            <div class="timer-minutes" id="timerDisplay">25:00</div>
+            <div class="timer-label" id="timerLabel">FOCUS</div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap">
+          <button class="btn-ghost" onclick="resetTimer()">↺ Reset</button>
+          <button class="btn-primary" id="startBtn" onclick="toggleTimer()" style="padding:12px 28px;font-size:1rem">▶ Start</button>
+          <button class="btn-ghost" id="saveBtn" onclick="savePartial()" style="display:none;color:var(--green);border-color:rgba(74,222,128,0.4)">✓ Save Progress</button>
+        </div>
+        <div id="sessionPhase" style="margin-top:14px;font-size:0.82rem;color:var(--text2)">Select a subject and press Start.</div>
+      </div>
+
+      <div class="card mt-3">
+        <div class="card-title">AMBIENT SOUNDS</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="ambient-btn" id="snd-rain" onclick="toggleSound('rain')">🌧️ Rain</button>
+          <button class="ambient-btn" id="snd-cafe" onclick="toggleSound('cafe')">☕ Café</button>
+          <button class="ambient-btn" id="snd-forest" onclick="toggleSound('forest')">🌲 Forest</button>
+          <button class="ambient-btn" id="snd-white" onclick="toggleSound('white')">🌀 White Noise</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card">
+        <div class="card-title">TODAY'S SESSIONS</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <div style="text-align:center;padding:14px;background:var(--bg3);border-radius:var(--radius-sm)">
+            <div style="font-family:var(--font-display);font-size:1.8rem;font-weight:800" id="todaySessions">0</div>
+            <div class="text-xs text-muted">Sessions</div>
+          </div>
+          <div style="text-align:center;padding:14px;background:var(--bg3);border-radius:var(--radius-sm)">
+            <div style="font-family:var(--font-display);font-size:1.8rem;font-weight:800" id="todayMins">0</div>
+            <div class="text-xs text-muted">Minutes</div>
+          </div>
+        </div>
+        <div id="sessionLog"><div class="text-sm text-muted" style="text-align:center;padding:16px">Complete a session to see your log</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">30-DAY STREAK</div>
+        <div class="heatmap-grid" id="miniHeatmap"></div>
+      </div>
+
+      <div class="card" style="background:rgba(74,222,128,0.05);border-color:rgba(74,222,128,0.2)">
+        <div class="card-title" style="color:var(--green)">💡 FOCUS TIP</div>
+        <div id="focusTip" class="text-xs text-muted" style="line-height:1.65"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const tips = [
+  "Put your phone in another room. Out of sight, out of mind.",
+  "Write distracting thoughts in a notepad instead of acting on them.",
+  "Start with your hardest task when your energy is highest.",
+  "Take your breaks seriously — a real break makes the next session better.",
+  "The Pomodoro Technique creates urgency: 'I only have 25 minutes!'",
+  "Batch similar tasks together — context-switching kills focus.",
+  "Review your notes within 24 hours to dramatically improve retention.",
+];
+document.getElementById('focusTip').textContent = tips[Math.floor(Math.random() * tips.length)];
+
+// ── State ──────────────────────────────────────────────────────────────────────
+let workMins = 25, breakMins = 5;
+let totalSecs = 25 * 60;
+let isRunning = false, isBreak = false;
+let endTime = null;        // wall-clock time when current phase will end
+let pausedRemaining = 25 * 60;  // seconds remaining when paused
+let tickInterval = null;
+let todayLog = [];
+let audioCtx = null, activeSound = null;
+
+// ── Timer core — uses wall-clock so tab throttling is irrelevant ───────────────
+function toggleTimer() {
+  if (isRunning) {
+    // PAUSE — save how much time remains right now
+    pausedRemaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
+    clearInterval(tickInterval);
+    isRunning = false;
+    document.getElementById('startBtn').textContent = '▶ Resume';
+    if (!isBreak && pausedRemaining < totalSecs) {
+      document.getElementById('saveBtn').style.display = 'inline-flex';
+    }
+  } else {
+    // START / RESUME — set endTime based on remaining seconds
+    endTime = Date.now() + pausedRemaining * 1000;
+    isRunning = true;
+    document.getElementById('startBtn').textContent = '⏸ Pause';
+    document.getElementById('saveBtn').style.display = 'none';
+    tickInterval = setInterval(tick, 500); // poll every 500ms for accuracy
+    tick(); // immediate update
+  }
+}
+
+function tick() {
+  if (!isRunning) return;
+  const remaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
+  updateDisplay(remaining);
+  if (remaining <= 0) {
+    clearInterval(tickInterval);
+    isRunning = false;
+    onPhaseComplete();
+  }
+}
+
+function onPhaseComplete() {
+  playNotifSound();
+  if (!isBreak) {
+    logSession(workMins);
+    document.getElementById('startBtn').textContent = '▶ Start Break';
+    document.getElementById('sessionPhase').textContent = `🎉 Session done! Take a ${breakMins}-min break.`;
+    isBreak = true;
+    totalSecs = breakMins * 60;
+    pausedRemaining = totalSecs;
+    document.getElementById('timerLabel').textContent = 'BREAK';
+    document.getElementById('timerRing').style.stroke = 'var(--green)';
+  } else {
+    isBreak = false;
+    totalSecs = workMins * 60;
+    pausedRemaining = totalSecs;
+    document.getElementById('timerLabel').textContent = 'FOCUS';
+    document.getElementById('timerRing').style.stroke = 'var(--accent)';
+    document.getElementById('startBtn').textContent = '▶ Start';
+    document.getElementById('sessionPhase').textContent = 'Break over! Ready for another?';
+  }
+  updateDisplay(pausedRemaining);
+}
+
+function savePartial() {
+  const elapsed = totalSecs - pausedRemaining;
+  if (elapsed < 60) { showNotif('Need at least 1 minute to save', 'error'); return; }
+  const mins = Math.floor(elapsed / 60);
+  logSession(mins);
+  resetTimer();
+  showNotif(`✓ ${mins} minutes saved!`, 'success');
+}
+
+function resetTimer() {
+  clearInterval(tickInterval);
+  isRunning = false; isBreak = false;
+  totalSecs = workMins * 60;
+  pausedRemaining = totalSecs;
+  endTime = null;
+  document.getElementById('timerLabel').textContent = 'FOCUS';
+  document.getElementById('timerRing').style.stroke = 'var(--accent)';
+  document.getElementById('startBtn').textContent = '▶ Start';
+  document.getElementById('saveBtn').style.display = 'none';
+  document.getElementById('sessionPhase').textContent = 'Timer reset.';
+  updateDisplay(totalSecs);
+}
+
+function setMode(work, brk, name, btn) {
+  document.querySelectorAll('.mode-tabs .mode-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  workMins = work; breakMins = brk;
+  clearInterval(tickInterval);
+  isRunning = false; isBreak = false;
+  totalSecs = work * 60;
+  pausedRemaining = totalSecs;
+  document.getElementById('startBtn').textContent = '▶ Start';
+  document.getElementById('saveBtn').style.display = 'none';
+  document.getElementById('timerLabel').textContent = 'FOCUS';
+  document.getElementById('sessionPhase').textContent = `${name} mode. Press Start.`;
+  updateDisplay(totalSecs);
+}
+
+function updateDisplay(remaining) {
+  const m = Math.floor(remaining / 60).toString().padStart(2, '0');
+  const s = (remaining % 60).toString().padStart(2, '0');
+  document.getElementById('timerDisplay').textContent = `${m}:${s}`;
+  document.title = isRunning ? `${m}:${s} — StudyMate` : 'Focus Mode — StudyMate';
+  const C = 2 * Math.PI * 90;
+  const ring = document.getElementById('timerRing');
+  ring.style.strokeDasharray = C;
+  ring.style.strokeDashoffset = C - C * (remaining / totalSecs);
+}
+
+// Save partial on page close
+window.addEventListener('pagehide', () => {
+  if (!isBreak && endTime) {
+    const elapsed = totalSecs - Math.max(0, Math.round((endTime - Date.now()) / 1000));
+    if (elapsed >= 60) {
+      const mins = Math.floor(elapsed / 60);
+      const sid = document.getElementById('subjectSelect').value || '';
+      navigator.sendBeacon(`/api/focus_beacon?uid=${mins}&sid=${sid}`);
+    }
+  }
+});
+
+// ── Session logging ────────────────────────────────────────────────────────────
+async function logSession(mins) {
+  const subjectId = document.getElementById('subjectSelect').value || null;
+  try {
+    await fetch('/api/focus', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ duration_minutes: mins, subject_id: subjectId })
+    });
+  } catch(e) {}
+  const label = document.getElementById('subjectSelect').selectedOptions[0].text;
+  const name = label === 'Select subject (optional)' ? 'General' : label;
+  todayLog.unshift({ mins, subject: name });
+  renderLog();
+  loadHeatmap();
+}
+
+function renderLog() {
+  const total = todayLog.reduce((a, b) => a + b.mins, 0);
+  document.getElementById('todaySessions').textContent = todayLog.length;
+  document.getElementById('todayMins').textContent = total;
+  document.getElementById('sessionLog').innerHTML = todayLog.slice(0, 6).map(l =>
+    `<div class="session-entry"><span>${l.subject}</span><span style="color:var(--green);font-weight:600">+${l.mins}m</span></div>`
+  ).join('') || '<div class="text-sm text-muted" style="text-align:center;padding:12px">No sessions yet</div>';
+}
+
+// ── Ambient sounds ─────────────────────────────────────────────────────────────
+function toggleSound(type) {
+  if (activeSound === type) {
+    stopAmbient();
+    document.getElementById('snd-' + type).classList.remove('active');
+    activeSound = null;
+    return;
+  }
+  stopAmbient();
+  document.querySelectorAll('.ambient-btn').forEach(b => b.classList.remove('active'));
+  startAmbient(type);
+  document.getElementById('snd-' + type).classList.add('active');
+  activeSound = type;
+}
+
+function startAmbient(type) {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const master = audioCtx.createGain();
+  master.gain.value = 0.10;
+  master.connect(audioCtx.destination);
+  const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 3, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf; src.loop = true;
+  if (type === 'white') {
+    src.connect(master);
+  } else {
+    const f = audioCtx.createBiquadFilter();
+    f.type = type === 'rain' ? 'highpass' : 'lowpass';
+    f.frequency.value = type === 'rain' ? 700 : type === 'forest' ? 500 : 350;
+    src.connect(f); f.connect(master);
+  }
+  src.start();
+}
+
+function stopAmbient() {
+  if (audioCtx) { try { audioCtx.close(); } catch(e){} audioCtx = null; }
+}
+
+function playNotifSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [523, 659, 784].forEach((freq, i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = freq; o.type = 'sine';
+      g.gain.setValueAtTime(0.25, ctx.currentTime + i * 0.15);
+      g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.5);
+      o.start(ctx.currentTime + i * 0.15);
+      o.stop(ctx.currentTime + i * 0.15 + 0.6);
+    });
+  } catch(e) {}
+}
+
+async function loadHeatmap() {
+  const res = await fetch('/api/focus/history');
+  const data = await res.json();
+  document.getElementById('miniHeatmap').innerHTML = data.map(d => {
+    const lvl = d.minutes === 0 ? 0 : d.minutes < 30 ? 1 : d.minutes < 60 ? 2 : d.minutes < 120 ? 3 : 4;
+    return `<div class="heat-cell heat-${lvl}" title="${d.date}: ${d.minutes}min"></div>`;
+  }).join('');
+}
+
+async function loadSubjects() {
+  const res = await fetch('/api/subjects');
+  const subjects = await res.json();
+  const sel = document.getElementById('subjectSelect');
+  subjects.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s.id; o.textContent = s.name;
+    sel.appendChild(o);
+  });
+}
+
+updateDisplay(totalSecs);
+loadSubjects();
+loadHeatmap();
+</script>
+{% endblock %}

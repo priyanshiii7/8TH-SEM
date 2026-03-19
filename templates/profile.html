@@ -1,0 +1,394 @@
+{% extends "base.html" %}
+{% block title %}Profile — StudyMate{% endblock %}
+{% block extra_css %}
+<style>
+.pfp-wrap { position:relative; width:80px; height:80px; flex-shrink:0; cursor:pointer; }
+.pfp-wrap img, .pfp-initial {
+  width:80px; height:80px; border-radius:50%;
+  object-fit:cover; display:flex; align-items:center; justify-content:center;
+  font-size:1.8rem; font-weight:700; color:white;
+  border: 3px solid rgba(124,111,247,0.4);
+  transition: border-color 0.2s;
+}
+.pfp-wrap:hover .pfp-initial, .pfp-wrap:hover img { border-color: var(--accent); }
+.pfp-overlay {
+  position:absolute; inset:0; border-radius:50%;
+  background:rgba(0,0,0,0.55); display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  opacity:0; transition:opacity 0.2s; font-size:0.6rem; color:white; gap:3px;
+}
+.pfp-wrap:hover .pfp-overlay { opacity:1; }
+.pfp-overlay svg { width:20px; height:20px; }
+.log-source-btns { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+.source-btn { padding:6px 12px; border-radius:20px; border:1px solid var(--border2); background:var(--bg3); font-size:0.78rem; cursor:pointer; color:var(--text2); transition:all 0.2s; }
+.source-btn.active { border-color:var(--accent); background:rgba(124,111,247,0.15); color:var(--accent2); }
+.log-entry { display:flex; justify-content:space-between; align-items:center; padding:9px 12px; border-radius:var(--radius-sm); background:var(--bg3); margin-bottom:5px; font-size:0.83rem; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page fade-in">
+  <div class="page-header">
+    <h1 class="page-title">Profile</h1>
+    <p class="page-sub">Manage your account, subjects, and study logs</p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+    <!-- Account -->
+    <div class="card">
+      <div class="card-title">ACCOUNT</div>
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+        <div class="pfp-wrap" onclick="document.getElementById('pfpInput').click()">
+          <div class="pfp-initial" id="pfpInitial" style="background:var(--accent)"></div>
+          <img id="pfpImg" style="display:none;position:absolute;inset:0;width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid rgba(124,111,247,0.4)">
+          <div class="pfp-overlay">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Change photo
+          </div>
+        </div>
+        <input type="file" id="pfpInput" accept="image/*" style="display:none" onchange="handlePfpUpload(this)">
+        <div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:1.1rem" id="profileName">—</div>
+          <div class="text-sm text-muted" id="profileEmail">—</div>
+          <div class="text-xs text-muted mt-2" id="profileSince">—</div>
+        </div>
+      </div>
+
+      <div class="form-group mb-3">
+        <label class="form-label">Display Name</label>
+        <input type="text" id="editName" class="input" placeholder="Your name">
+      </div>
+
+      <div class="form-group mb-3">
+        <label class="form-label">Avatar Color <span class="text-xs text-muted">(used when no photo)</span></label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap" id="colorPicker">
+          {% for color in ['#7C6FF7','#F87171','#4ADE80','#22D3EE','#FCD34D','#F472B6','#A78BFA','#34D399','#FB923C','#60A5FA'] %}
+          <div onclick="pickColor('{{color}}')" data-color="{{color}}" style="width:28px;height:28px;border-radius:50%;background:{{color}};cursor:pointer;border:2px solid transparent;transition:all 0.2s"></div>
+          {% endfor %}
+        </div>
+      </div>
+      <button class="btn-primary" onclick="saveProfile()" id="saveProfileBtn">Save Changes</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="card">
+      <div class="card-title">YOUR STATS</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+        <div style="text-align:center;padding:16px;background:var(--bg3);border-radius:var(--radius-sm)">
+          <div style="font-family:var(--font-display);font-size:1.8rem;font-weight:800;color:var(--accent2)" id="pTotalFocus">0</div>
+          <div class="text-xs text-muted">Total Hours</div>
+        </div>
+        <div style="text-align:center;padding:16px;background:var(--bg3);border-radius:var(--radius-sm)">
+          <div style="font-family:var(--font-display);font-size:1.8rem;font-weight:800;color:var(--green)" id="pTasksDone">0</div>
+          <div class="text-xs text-muted">Tasks Done</div>
+        </div>
+        <div style="text-align:center;padding:16px;background:var(--bg3);border-radius:var(--radius-sm)">
+          <div style="font-family:var(--font-display);font-size:1.8rem;font-weight:800;color:var(--amber)" id="pStreak">0</div>
+          <div class="text-xs text-muted">Day Streak 🔥</div>
+        </div>
+        <div style="text-align:center;padding:16px;background:var(--bg3);border-radius:var(--radius-sm)">
+          <div style="font-family:var(--font-display);font-size:1.8rem;font-weight:800;color:var(--cyan)" id="pSubjectsCount">0</div>
+          <div class="text-xs text-muted">Subjects</div>
+        </div>
+      </div>
+
+      <!-- Manual log card -->
+      <div style="background:rgba(124,111,247,0.08);border:1px solid rgba(124,111,247,0.25);border-radius:var(--radius-sm);padding:14px">
+        <div style="font-size:0.78rem;font-weight:600;letter-spacing:1px;color:var(--accent2);margin-bottom:10px">📝 LOG STUDY SESSION</div>
+        <p class="text-xs text-muted mb-3">Studied from YouTube, textbook, class, or anywhere? Log it here — it counts toward your progress.</p>
+        <div class="log-source-btns">
+          <button class="source-btn active" onclick="selectSource(this,'YouTube')">▶ YouTube</button>
+          <button class="source-btn" onclick="selectSource(this,'Self Study')">📖 Self Study</button>
+          <button class="source-btn" onclick="selectSource(this,'Class')">🏫 Class</button>
+          <button class="source-btn" onclick="selectSource(this,'Textbook')">📚 Textbook</button>
+          <button class="source-btn" onclick="selectSource(this,'Other')">✏️ Other</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <div style="flex:1">
+            <label class="form-label">Subject</label>
+            <select id="logSubject" class="select" style="width:100%">
+              <option value="">General</option>
+            </select>
+          </div>
+          <div style="width:90px">
+            <label class="form-label">Minutes</label>
+            <input type="number" id="logMinutes" class="input" value="30" min="1" max="480">
+          </div>
+          <div style="flex:1">
+            <label class="form-label">Date</label>
+            <input type="date" id="logDate" class="input">
+          </div>
+        </div>
+        <button class="btn-primary w-full" style="justify-content:center" onclick="submitLog()" id="logBtn">+ Log Session</button>
+      </div>
+    </div>
+
+    <!-- Subjects -->
+    <div class="card" style="grid-column:span 2">
+      <div class="flex justify-between items-center mb-3">
+        <div class="card-title" style="margin:0">SUBJECTS & PROGRESS</div>
+        <button class="btn-ghost btn-sm" onclick="openAddSubject()">+ Add Subject</button>
+      </div>
+      <div id="profileSubjects">
+        <div class="loader" style="margin:20px auto;display:block"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Subject Modal -->
+<div class="modal-overlay" id="addSubjectModal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Add Subject</h3>
+      <button onclick="document.getElementById('addSubjectModal').classList.remove('open')" class="modal-close">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Subject Name</label>
+      <input type="text" id="newSubjectName" class="input" placeholder="e.g. Cybersecurity, Machine Learning">
+    </div>
+    <div class="flex gap-2 mb-3">
+      <div style="flex:1">
+        <label class="form-label">Target Hours</label>
+        <input type="number" id="newSubjectHours" class="input" value="20" min="1">
+      </div>
+      <div style="flex:1">
+        <label class="form-label">Exam Date</label>
+        <input type="date" id="newSubjectExam" class="input">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Color</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" id="subjectColorPicker">
+        {% for color in ['#7C6FF7','#F87171','#4ADE80','#22D3EE','#FCD34D','#F472B6','#A78BFA','#34D399'] %}
+        <div onclick="selectSubjectColor('{{color}}')" data-color="{{color}}" style="width:28px;height:28px;border-radius:50%;background:{{color}};cursor:pointer;border:2px solid transparent;transition:all 0.2s"></div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="document.getElementById('addSubjectModal').classList.remove('open')">Cancel</button>
+      <button class="btn-primary" onclick="addSubject()">Add Subject</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedColor = '#7C6FF7';
+let selectedSubjectColor = '#7C6FF7';
+let selectedSource = 'YouTube';
+// Set today's date in YYYY-MM-DD format
+const today = new Date();
+const yyyy = today.getFullYear();
+const mm = String(today.getMonth()+1).padStart(2,'0');
+const dd = String(today.getDate()).padStart(2,'0');
+document.getElementById('logDate').value = `${yyyy}-${mm}-${dd}`;
+
+function selectSource(btn, src) {
+  selectedSource = src;
+  document.querySelectorAll('.source-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function loadProfile() {
+  let profile, stats;
+  try {
+    [profile, stats] = await Promise.all([
+      fetch('/api/profile').then(r => r.json()),
+      fetch('/api/user/stats').then(r => r.json())
+    ]);
+  } catch(e) {
+    document.getElementById('profileSubjects').innerHTML = '<div class="text-sm text-red" style="padding:16px">Failed to load profile. Try refreshing.</div>';
+    return;
+  }
+
+  document.getElementById('profileName').textContent = profile.name;
+  document.getElementById('profileEmail').textContent = profile.email;
+  document.getElementById('profileSince').textContent = 'Member since ' + profile.member_since;
+  document.getElementById('editName').value = profile.name;
+
+  // Avatar
+  const initial = document.getElementById('pfpInitial');
+  const img = document.getElementById('pfpImg');
+  initial.textContent = profile.name[0].toUpperCase();
+  initial.style.background = profile.avatar_color;
+  selectedColor = profile.avatar_color;
+
+  if (profile.avatar_b64) {
+    img.src = profile.avatar_b64;
+    img.style.display = 'block';
+    initial.style.display = 'none';
+  }
+
+  document.querySelectorAll('#colorPicker div').forEach(d => {
+    d.style.border = d.dataset.color === profile.avatar_color ? '2px solid white' : '2px solid transparent';
+  });
+
+  document.getElementById('pTotalFocus').textContent = stats.total_focus_hours;
+  document.getElementById('pTasksDone').textContent = stats.tasks_done;
+  document.getElementById('pStreak').textContent = stats.streak;
+  document.getElementById('pSubjectsCount').textContent = stats.subjects_count;
+
+  // Top bar avatar
+  const av = document.getElementById('topbarAvatar');
+  if (av) {
+    if (profile.avatar_b64) {
+      av.innerHTML = `<img src="${profile.avatar_b64}" style="width:32px;height:32px;border-radius:50%;object-fit:cover">`;
+    } else {
+      av.textContent = profile.name[0].toUpperCase();
+      av.style.background = profile.avatar_color;
+    }
+  }
+
+  renderSubjects(profile.subjects);
+  loadSubjectsIntoSelect(profile.subjects);
+}
+
+function renderSubjects(subjects) {
+  const el = document.getElementById('profileSubjects');
+  if (!subjects.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📚</div><div class="empty-text">No subjects yet — add one above</div></div>';
+    return;
+  }
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">` +
+    subjects.map(s => {
+      const pct = s.target_hours > 0 ? Math.min(100, Math.round((s.studied_hours / s.target_hours) * 100)) : 0;
+      let daysLeft = null;
+      if (s.exam_date) {
+        try { daysLeft = Math.max(0, Math.ceil((new Date(s.exam_date) - new Date()) / 86400000)); } catch(e) {}
+      }
+      return `
+        <div class="subject-card" style="--subject-color:${s.color}">
+          <div class="flex justify-between items-center mb-2">
+            <span class="subject-name">${s.name}</span>
+            ${daysLeft !== null ? `<span class="text-xs" style="color:${daysLeft < 7 ? 'var(--red)' : 'var(--text2)'}">📅 ${daysLeft}d left</span>` : ''}
+          </div>
+          <div class="flex justify-between text-xs text-muted mb-2">
+            <span>${s.studied_hours}h studied</span>
+            <span>${s.target_hours}h target</span>
+          </div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar-fill" style="width:${pct}%;background:${s.color}"></div>
+          </div>
+          <div class="flex justify-between mt-2">
+            <span class="text-xs text-muted">${pct}% complete</span>
+            <button class="text-xs" style="color:var(--accent2);background:none;border:none;cursor:pointer" onclick="quickLog(${s.id},'${s.name}')">+ Log time</button>
+          </div>
+        </div>`;
+    }).join('') + '</div>';
+}
+
+function loadSubjectsIntoSelect(subjects) {
+  const sel = document.getElementById('logSubject');
+  sel.innerHTML = '<option value="">General</option>';
+  subjects.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s.id; o.textContent = s.name;
+    sel.appendChild(o);
+  });
+}
+
+function quickLog(subjectId, name) {
+  document.getElementById('logSubject').value = subjectId;
+  document.getElementById('logMinutes').focus();
+  showNotif(`Logging time for ${name}`, 'info');
+}
+
+async function submitLog() {
+  const mins = parseInt(document.getElementById('logMinutes').value);
+  if (!mins || mins < 1) { showNotif('Enter valid minutes', 'error'); return; }
+  const btn = document.getElementById('logBtn');
+  btn.innerHTML = '<span class="loader"></span>';
+  btn.disabled = true;
+  const res = await fetch('/api/study/manual-log', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      minutes: mins,
+      subject_id: document.getElementById('logSubject').value || null,
+      study_date: document.getElementById('logDate').value,
+      note: selectedSource
+    })
+  });
+  const data = await res.json();
+  btn.innerHTML = '+ Log Session'; btn.disabled = false;
+  if (data.success) {
+    showNotif(`✓ ${mins} min logged from ${selectedSource}!`, 'success');
+    loadProfile();
+  } else {
+    showNotif(data.error || 'Failed to log', 'error');
+  }
+}
+
+function pickColor(c) {
+  selectedColor = c;
+  document.querySelectorAll('#colorPicker div').forEach(d => {
+    d.style.border = d.dataset.color === c ? '2px solid white' : '2px solid transparent';
+  });
+  const initial = document.getElementById('pfpInitial');
+  if (initial.style.display !== 'none') initial.style.background = c;
+}
+
+function selectSubjectColor(c) {
+  selectedSubjectColor = c;
+  document.querySelectorAll('#subjectColorPicker div').forEach(d => {
+    d.style.border = d.dataset.color === c ? '2px solid white' : '2px solid transparent';
+  });
+}
+selectSubjectColor('#7C6FF7');
+
+function handlePfpUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 1500000) { showNotif('Image must be under 1.5MB', 'error'); return; }
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const b64 = e.target.result;
+    const img = document.getElementById('pfpImg');
+    const initial = document.getElementById('pfpInitial');
+    img.src = b64; img.style.display = 'block'; initial.style.display = 'none';
+    const res = await fetch('/api/profile/picture', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ image_b64: b64 })
+    });
+    const data = await res.json();
+    if (data.success) showNotif('Profile picture updated! ✓', 'success');
+    else showNotif(data.error || 'Upload failed', 'error');
+  };
+  reader.readAsDataURL(file);
+}
+
+async function saveProfile() {
+  const btn = document.getElementById('saveProfileBtn');
+  btn.innerHTML = '<span class="loader"></span>'; btn.disabled = true;
+  await fetch('/api/profile', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name: document.getElementById('editName').value.trim(), avatar_color: selectedColor })
+  });
+  btn.innerHTML = 'Save Changes'; btn.disabled = false;
+  showNotif('Profile updated! ✓', 'success');
+  loadProfile();
+}
+
+function openAddSubject() { document.getElementById('addSubjectModal').classList.add('open'); }
+
+async function addSubject() {
+  const name = document.getElementById('newSubjectName').value.trim();
+  if (!name) { showNotif('Enter a subject name', 'error'); return; }
+  await fetch('/api/subjects', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      name, color: selectedSubjectColor,
+      target_hours: document.getElementById('newSubjectHours').value || 20,
+      exam_date: document.getElementById('newSubjectExam').value || null
+    })
+  });
+  document.getElementById('addSubjectModal').classList.remove('open');
+  document.getElementById('newSubjectName').value = '';
+  showNotif(`${name} added! 📚`, 'success');
+  loadProfile();
+}
+
+loadProfile();
+</script>
+{% endblock %}

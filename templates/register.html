@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register — StudyMate AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>
+    .step { display: none; }
+    .step.active { display: block; }
+    .step-indicator { display: flex; gap: 6px; margin-bottom: 24px; }
+    .step-dot { height: 4px; flex: 1; border-radius: 4px; background: var(--border2); transition: background 0.3s; }
+    .step-dot.done { background: var(--accent); }
+    .subject-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; animation: fadeUp 0.2s ease; }
+    .subject-row input { flex: 1; }
+    .remove-btn { width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--border2); color: var(--text2); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: all 0.2s; font-size: 1rem; background: transparent; }
+    .remove-btn:hover { border-color: var(--red); color: var(--red); }
+    .subject-hint { font-size: 0.75rem; color: var(--text2); margin-bottom: 12px; line-height: 1.55; }
+    .skip-link { text-align: center; margin-top: 10px; font-size: 0.8rem; color: var(--text2); }
+    .skip-link span { cursor: pointer; text-decoration: underline; }
+    .skip-link span:hover { color: var(--text); }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+  </style>
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card" style="max-width:440px">
+    <div class="auth-logo">
+      <div class="logo-mark">
+        <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+          <path d="M14 2L26 8V20L14 26L2 20V8L14 2Z" stroke="currentColor" stroke-width="2" fill="none"/>
+          <path d="M14 7L21 11V17L14 21L7 17V11L14 7Z" fill="currentColor" opacity="0.3"/>
+          <circle cx="14" cy="14" r="3" fill="currentColor"/>
+        </svg>
+      </div>
+      <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem">StudyMate</span>
+      <span class="logo-tag">AI</span>
+    </div>
+    <div class="step-indicator">
+      <div class="step-dot done" id="dot1"></div>
+      <div class="step-dot" id="dot2"></div>
+    </div>
+
+    <div class="step active" id="step1">
+      <h1 class="auth-title">Create account</h1>
+      <p class="auth-sub">Step 1 of 2 — Your details</p>
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input type="text" id="name" class="input" placeholder="Priyanshi Rathore">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" id="email" class="input" placeholder="you@example.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" id="password" class="input" placeholder="Min 6 characters">
+      </div>
+      <div class="error-msg" id="step1Error"></div>
+      <button class="btn-primary w-full" style="justify-content:center;margin-top:8px" onclick="goStep2()">Continue →</button>
+      <div class="auth-footer">Already have an account? <a href="/login">Sign in</a></div>
+    </div>
+
+    <div class="step" id="step2">
+      <h1 class="auth-title">Your subjects 📚</h1>
+      <p class="auth-sub">Step 2 of 2 — AI uses these to personalize everything</p>
+      <p class="subject-hint">Add subjects you're studying now. Add exam dates and the AI will build a day-by-day countdown plan for each one.</p>
+      <div id="subjectsContainer"></div>
+      <button class="btn-ghost w-full" style="justify-content:center;margin-bottom:12px;font-size:0.85rem" onclick="addSubjectRow()">+ Add another subject</button>
+      <div class="error-msg" id="step2Error"></div>
+      <button class="btn-primary w-full" style="justify-content:center" onclick="handleRegister()" id="regBtn">Create Account ✦</button>
+      <div class="skip-link"><span onclick="skipSubjects()">Skip — I'll add subjects later</span></div>
+    </div>
+  </div>
+</div>
+<script>
+let sc = 0;
+function goStep2() {
+  const name = document.getElementById('name').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const pw = document.getElementById('password').value;
+  const err = document.getElementById('step1Error');
+  if (!name) { err.textContent = 'Enter your name'; return; }
+  if (!email || !email.includes('@')) { err.textContent = 'Enter a valid email'; return; }
+  if (pw.length < 6) { err.textContent = 'Password must be at least 6 characters'; return; }
+  err.textContent = '';
+  document.getElementById('step1').classList.remove('active');
+  document.getElementById('step2').classList.add('active');
+  document.getElementById('dot2').classList.add('done');
+  addSubjectRow(); addSubjectRow();
+}
+function addSubjectRow() {
+  sc++;
+  const id = sc;
+  const c = document.getElementById('subjectsContainer');
+  const row = document.createElement('div');
+  row.className = 'subject-row'; row.id = 'srow-' + id;
+  row.innerHTML = `<input type="text" class="input subj-name" placeholder="Subject name e.g. Cybersecurity" style="flex:2"><input type="date" class="input subj-date" title="Exam date (optional)" style="flex:1;font-size:0.78rem"><button class="remove-btn" onclick="removeRow(${id})">×</button>`;
+  c.appendChild(row);
+}
+function removeRow(id) {
+  const row = document.getElementById('srow-' + id);
+  if (row && document.querySelectorAll('.subject-row').length > 1) row.remove();
+}
+function collectSubjects() {
+  return Array.from(document.querySelectorAll('.subject-row')).map(r => ({
+    name: r.querySelector('.subj-name').value.trim(),
+    exam_date: r.querySelector('.subj-date').value || null,
+    target_hours: 20
+  })).filter(s => s.name);
+}
+async function skipSubjects() { await submit([]); }
+async function handleRegister() {
+  const s = collectSubjects();
+  if (!s.length) { document.getElementById('step2Error').textContent = 'Add at least one subject, or click Skip'; return; }
+  await submit(s);
+}
+async function submit(subjects) {
+  const btn = document.getElementById('regBtn');
+  btn.innerHTML = '<span class="loader"></span>'; btn.disabled = true;
+  document.getElementById('step2Error').textContent = '';
+  const res = await fetch('/register', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name: document.getElementById('name').value.trim(), email: document.getElementById('email').value.trim(), password: document.getElementById('password').value, subjects })
+  });
+  const data = await res.json();
+  if (data.success) { window.location.href = '/dashboard'; }
+  else { document.getElementById('step2Error').textContent = data.error || 'Failed'; btn.innerHTML = 'Create Account ✦'; btn.disabled = false; }
+}
+</script>
+</body>
+</html>

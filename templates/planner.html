@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+{% block title %}AI Planner — StudyMate{% endblock %}
+{% block content %}
+<div class="page fade-in">
+  <div class="page-header flex justify-between items-center">
+    <div>
+      <h1 class="page-title">AI Planner ✦</h1>
+      <p class="page-sub">Smart task management + AI-generated study plans</p>
+    </div>
+    <div class="flex gap-2">
+      <button class="btn-ghost" onclick="openSubjectModal()">+ Subject</button>
+      <button class="btn-primary" onclick="openTaskModal()">+ Task</button>
+    </div>
+  </div>
+
+  <div class="grid-main">
+    <div>
+      <!-- AI Plan Generator -->
+      <div class="card mb-3" style="background:linear-gradient(135deg,rgba(124,111,247,0.1),rgba(34,211,238,0.05));border-color:rgba(124,111,247,0.3)">
+        <div class="card-title" style="color:var(--accent2)">✦ AI STUDY PLAN GENERATOR</div>
+        <p class="text-sm text-muted mb-3">Tell the AI what you need to study and it'll create a personalized task list for you.</p>
+        <div class="flex gap-2">
+          <input type="text" id="planContext" class="input" placeholder="e.g. 'I have a math exam in 3 days, I\'m weak in calculus'" style="flex:1">
+          <button class="btn-primary" onclick="generateAIPlan()" id="genBtn">
+            ✦ Generate Plan
+          </button>
+        </div>
+        <div id="planResult" class="mt-3"></div>
+      </div>
+
+      <!-- Tasks -->
+      <div class="card">
+        <div class="flex justify-between items-center mb-3">
+          <div class="card-title" style="margin:0">ALL TASKS</div>
+          <div class="flex gap-2">
+            <select id="filterPriority" class="select" style="font-size:0.78rem;padding:6px 28px 6px 10px" onchange="filterTasks()">
+              <option value="">All Priority</option>
+              <option value="high">🔴 High</option>
+              <option value="medium">🟡 Medium</option>
+              <option value="low">🟢 Low</option>
+            </select>
+            <select id="filterStatus" class="select" style="font-size:0.78rem;padding:6px 28px 6px 10px" onchange="filterTasks()">
+              <option value="">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="done">Done</option>
+            </select>
+          </div>
+        </div>
+        <div id="allTasks">
+          <div class="loader" style="margin:20px auto;display:block"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Subjects Panel -->
+    <div>
+      <div class="card">
+        <div class="card-title">SUBJECTS</div>
+        <div id="subjectsGrid">
+          <div class="loader" style="margin:16px auto;display:block"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Task Modal -->
+<div class="modal-overlay" id="taskModal" onclick="closeModal('taskModal',event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>New Task</h3>
+      <button onclick="closeModal('taskModal')" class="modal-close">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Task Title *</label>
+      <input type="text" id="mTaskTitle" class="input" placeholder="What needs to be done?">
+    </div>
+    <div class="flex gap-2 mb-3">
+      <div style="flex:1">
+        <label class="form-label">Priority</label>
+        <select id="mTaskPriority" class="select" style="width:100%">
+          <option value="high">🔴 High</option>
+          <option value="medium" selected>🟡 Medium</option>
+          <option value="low">🟢 Low</option>
+        </select>
+      </div>
+      <div style="flex:1">
+        <label class="form-label">Due Date</label>
+        <input type="date" id="mTaskDue" class="input">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Subject</label>
+      <select id="mTaskSubject" class="select" style="width:100%">
+        <option value="">General</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal('taskModal')">Cancel</button>
+      <button class="btn-primary" onclick="addTask()">Add Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Subject Modal -->
+<div class="modal-overlay" id="subjectModal" onclick="closeModal('subjectModal',event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Add Subject</h3>
+      <button onclick="closeModal('subjectModal')" class="modal-close">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Subject Name *</label>
+      <input type="text" id="mSubjectName" class="input" placeholder="e.g. Physics, Calculus, History">
+    </div>
+    <div class="flex gap-2 mb-3">
+      <div style="flex:1">
+        <label class="form-label">Target Hours</label>
+        <input type="number" id="mSubjectHours" class="input" value="20" min="1">
+      </div>
+      <div style="flex:1">
+        <label class="form-label">Exam Date</label>
+        <input type="date" id="mSubjectExam" class="input">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Color</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" id="colorPicker">
+        {% for color in ['#7C6FF7','#F87171','#4ADE80','#22D3EE','#FCD34D','#F472B6','#A78BFA','#34D399'] %}
+        <div onclick="selectColor('{{color}}')" style="width:28px;height:28px;border-radius:50%;background:{{color}};cursor:pointer;border:2px solid transparent;transition:all 0.2s" data-color="{{color}}"></div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal('subjectModal')">Cancel</button>
+      <button class="btn-primary" onclick="addSubject()">Add Subject</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allTasks = [];
+let selectedColor = '#7C6FF7';
+
+function selectColor(c) {
+  selectedColor = c;
+  document.querySelectorAll('#colorPicker div').forEach(d => {
+    d.style.border = d.dataset.color === c ? '2px solid white' : '2px solid transparent';
+  });
+}
+selectColor('#7C6FF7');
+
+async function loadTasks() {
+  const res = await fetch('/api/tasks');
+  allTasks = await res.json();
+  filterTasks();
+}
+
+function filterTasks() {
+  const priority = document.getElementById('filterPriority').value;
+  const status = document.getElementById('filterStatus').value;
+  let tasks = allTasks.filter(t => {
+    if (priority && t.priority !== priority) return false;
+    if (status === 'pending' && t.completed) return false;
+    if (status === 'done' && !t.completed) return false;
+    return true;
+  });
+  renderTasks(tasks);
+}
+
+function renderTasks(tasks) {
+  const el = document.getElementById('allTasks');
+  if (!tasks.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">No tasks here. Add one above!</div></div>';
+    return;
+  }
+  el.innerHTML = tasks.map(t => `
+    <div class="task-item ${t.completed ? 'done' : ''}" id="ptask-${t.id}">
+      <div class="task-check ${t.completed ? 'checked' : ''}" onclick="toggleTask(${t.id})"></div>
+      <div class="priority-dot ${t.priority}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="task-title truncate">${t.title}</div>
+        <div class="text-xs text-muted mt-1">${t.subject}${t.due_date ? ' · Due '+t.due_date : ''}</div>
+      </div>
+      ${t.ai_generated ? '<span class="ai-tag">AI</span>' : ''}
+      <button class="btn-icon" onclick="deleteTask(${t.id})" style="width:26px;height:26px;flex-shrink:0">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  `).join('');
+}
+
+async function toggleTask(id) {
+  await fetch(`/api/tasks/${id}/toggle`, { method: 'POST' });
+  const t = allTasks.find(t => t.id === id);
+  if (t) t.completed = !t.completed;
+  filterTasks();
+}
+
+async function deleteTask(id) {
+  await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+  allTasks = allTasks.filter(t => t.id !== id);
+  filterTasks();
+  showNotif('Task deleted', 'info');
+}
+
+function openTaskModal() {
+  loadSubjectsForSelect();
+  document.getElementById('taskModal').classList.add('open');
+}
+function openSubjectModal() { document.getElementById('subjectModal').classList.add('open'); }
+function closeModal(id, e) {
+  if (!e || e.target === document.getElementById(id)) document.getElementById(id).classList.remove('open');
+}
+
+async function loadSubjectsForSelect() {
+  const res = await fetch('/api/subjects');
+  const subjects = await res.json();
+  const sel = document.getElementById('mTaskSubject');
+  sel.innerHTML = '<option value="">General</option>';
+  subjects.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id; opt.textContent = s.name;
+    sel.appendChild(opt);
+  });
+}
+
+async function addTask() {
+  const title = document.getElementById('mTaskTitle').value.trim();
+  if (!title) { showNotif('Enter a task title', 'error'); return; }
+  await fetch('/api/tasks', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      title,
+      priority: document.getElementById('mTaskPriority').value,
+      due_date: document.getElementById('mTaskDue').value || null,
+      subject_id: document.getElementById('mTaskSubject').value || null
+    })
+  });
+  closeModal('taskModal');
+  loadTasks();
+  showNotif('Task added! ✅', 'success');
+}
+
+async function addSubject() {
+  const name = document.getElementById('mSubjectName').value.trim();
+  if (!name) { showNotif('Enter a subject name', 'error'); return; }
+  await fetch('/api/subjects', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      name, color: selectedColor,
+      target_hours: document.getElementById('mSubjectHours').value || 20,
+      exam_date: document.getElementById('mSubjectExam').value || null
+    })
+  });
+  closeModal('subjectModal');
+  loadSubjectsGrid();
+  showNotif(`${name} added! 📚`, 'success');
+}
+
+async function loadSubjectsGrid() {
+  const res = await fetch('/api/subjects');
+  const subjects = await res.json();
+  const el = document.getElementById('subjectsGrid');
+  if (!subjects.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📚</div><div class="empty-text">Add your first subject</div></div>';
+    return;
+  }
+  el.innerHTML = subjects.map(s => {
+    const pct = Math.min(100, Math.round((s.studied_hours / s.target_hours) * 100)) || 0;
+    const daysLeft = s.exam_date ? Math.max(0, Math.ceil((new Date(s.exam_date) - new Date()) / 86400000)) : null;
+    return `
+      <div class="subject-card mb-3" style="--subject-color:${s.color}">
+        <div class="flex justify-between items-center mb-2">
+          <span class="subject-name">${s.name}</span>
+          ${daysLeft !== null ? `<span class="text-xs" style="color:${daysLeft < 7 ? 'var(--red)' : 'var(--text2)'}">📅 ${daysLeft}d</span>` : ''}
+        </div>
+        <div class="text-xs text-muted mb-2">${s.studied_hours}h / ${s.target_hours}h target</div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" style="width:${pct}%;background:${s.color}"></div>
+        </div>
+        <div class="text-xs text-muted mt-2">${pct}% complete</div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function generateAIPlan() {
+  const context = document.getElementById('planContext').value.trim();
+  const btn = document.getElementById('genBtn');
+  const result = document.getElementById('planResult');
+  const apiKey = localStorage.getItem('sm_api_key') || '';
+
+  btn.innerHTML = '<span class="loader"></span> Generating...';
+  btn.disabled = true;
+  result.innerHTML = '';
+
+  const res = await fetch('/api/ai/generate-plan', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ context, api_key: apiKey })
+  });
+  const data = await res.json();
+  btn.innerHTML = '✦ Generate Plan';
+  btn.disabled = false;
+
+  if (data.success) {
+    result.innerHTML = `
+      <div style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);border-radius:10px;padding:14px">
+        <div style="font-size:0.8rem;color:var(--green);font-weight:600;margin-bottom:10px">✓ ${data.tasks.length} tasks generated${data.note ? ' ('+data.note+')' : ''}</div>
+        ${data.tasks.map(t => `
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.85rem">
+            <div class="priority-dot ${t.priority}"></div>
+            <span>${t.title}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    loadTasks();
+    showNotif('AI plan added to your tasks! ✦', 'success');
+  } else {
+    result.innerHTML = `<div class="text-sm text-red">${data.error}</div>`;
+  }
+}
+
+loadTasks();
+loadSubjectsGrid();
+</script>
+{% endblock %}

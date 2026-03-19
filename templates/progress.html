@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Progress — StudyMate{% endblock %}
+{% block extra_css %}
+<style>
+.chart-box { position: relative; width: 100%; height: 220px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page fade-in">
+  <div class="page-header flex justify-between items-center">
+    <div>
+      <h1 class="page-title">Progress ✦</h1>
+      <p class="page-sub">Track your learning journey over time</p>
+    </div>
+    <button class="btn-primary" onclick="generateAnalysis()" id="analysisBtn">✦ AI Analysis</button>
+  </div>
+
+  <div id="analysisBanner" style="display:none;margin-bottom:20px;padding:18px;background:linear-gradient(135deg,rgba(124,111,247,0.12),rgba(34,211,238,0.06));border:1px solid rgba(124,111,247,0.3);border-radius:var(--radius);font-size:0.88rem;line-height:1.65"></div>
+
+  <div class="stats-row mb-3">
+    <div class="stat-card" style="--accent-color:var(--accent)">
+      <div class="stat-label">TOTAL HOURS</div>
+      <div class="stat-value" id="pTotalH">0<span class="stat-unit">h</span></div>
+    </div>
+    <div class="stat-card" style="--accent-color:var(--green)">
+      <div class="stat-label">TASKS DONE</div>
+      <div class="stat-value" id="pTasksDone">0</div>
+    </div>
+    <div class="stat-card" style="--accent-color:var(--amber)">
+      <div class="stat-label">STREAK</div>
+      <div class="stat-value" id="pStreak">0<span class="stat-unit">d</span></div>
+    </div>
+    <div class="stat-card" style="--accent-color:var(--cyan)">
+      <div class="stat-label">COMPLETION RATE</div>
+      <div class="stat-value" id="pCompletion">0<span class="stat-unit">%</span></div>
+    </div>
+  </div>
+
+  <div class="grid-2 mb-3">
+    <div class="card">
+      <div class="card-title">30-DAY FOCUS HEATMAP</div>
+      <div class="heatmap-grid" id="fullHeatmap" style="gap:4px"></div>
+      <div style="display:flex;gap:6px;align-items:center;margin-top:10px;font-size:0.72rem;color:var(--text2)">
+        <span>Less</span>
+        <div style="width:12px;height:12px;background:var(--bg3);border-radius:3px"></div>
+        <div style="width:12px;height:12px;background:rgba(124,111,247,0.3);border-radius:3px"></div>
+        <div style="width:12px;height:12px;background:rgba(124,111,247,0.6);border-radius:3px"></div>
+        <div style="width:12px;height:12px;background:var(--accent);border-radius:3px"></div>
+        <span>More</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">SUBJECT BREAKDOWN</div>
+      <div id="subjectBreakdown">
+        <div class="empty-state">
+          <div class="empty-icon">📚</div>
+          <div class="empty-text">Log focus sessions to see breakdown</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">DAILY FOCUS — LAST 14 DAYS (hours)</div>
+    <div style="position:relative;height:160px;width:100%">
+      <canvas id="trendChart"></canvas>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function load() {
+  const [stats, history, subjects] = await Promise.all([
+    fetch('/api/user/stats').then(r => r.json()),
+    fetch('/api/focus/history').then(r => r.json()),
+    fetch('/api/subjects').then(r => r.json())
+  ]);
+
+  document.getElementById('pTotalH').innerHTML = `${stats.total_focus_hours}<span class="stat-unit">h</span>`;
+  document.getElementById('pTasksDone').textContent = stats.tasks_done;
+  document.getElementById('pStreak').innerHTML = `${stats.streak}<span class="stat-unit">d</span>`;
+  const pct = stats.tasks_total ? Math.round((stats.tasks_done / stats.tasks_total) * 100) : 0;
+  document.getElementById('pCompletion').innerHTML = `${pct}<span class="stat-unit">%</span>`;
+
+  // Heatmap
+  document.getElementById('fullHeatmap').innerHTML = history.map(d => {
+    const lvl = d.minutes === 0 ? 0 : d.minutes < 30 ? 1 : d.minutes < 60 ? 2 : d.minutes < 120 ? 3 : 4;
+    return `<div class="heat-cell heat-${lvl}" title="${d.date}: ${d.minutes}min"></div>`;
+  }).join('');
+
+  // Subject breakdown — simple bars, no pie chart
+  const subEl = document.getElementById('subjectBreakdown');
+  if (subjects.length) {
+    subEl.innerHTML = subjects.map(s => {
+      const pct = s.target_hours > 0 ? Math.min(100, Math.round((s.studied_hours / s.target_hours) * 100)) : 0;
+      return `
+        <div style="margin-bottom:14px">
+          <div class="flex justify-between items-center mb-1">
+            <span style="font-size:0.85rem;font-weight:500">${s.name}</span>
+            <span class="text-xs text-muted">${s.studied_hours}h / ${s.target_hours}h</span>
+          </div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar-fill" style="width:${pct}%;background:${s.color}"></div>
+          </div>
+          <div class="text-xs text-muted mt-1">${pct}% complete</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Trend line chart — 14 days
+  const last14 = history.slice(-14);
+  const ctx = document.getElementById('trendChart');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: last14.map(d => d.date.slice(5)),
+      datasets: [{
+        data: last14.map(d => Math.round(d.minutes / 60 * 10) / 10),
+        backgroundColor: last14.map((d, i) => i === 13 ? '#7C6FF7' : 'rgba(124,111,247,0.35)'),
+        borderRadius: 5,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#9090B0', font: { size: 10 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#9090B0', font: { size: 10 } }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+async function generateAnalysis() {
+  const btn = document.getElementById('analysisBtn');
+  const banner = document.getElementById('analysisBanner');
+  btn.innerHTML = '<span class="loader"></span>';
+  btn.disabled = true;
+  const apiKey = localStorage.getItem('sm_api_key') || '';
+  const res = await fetch('/api/ai/analyze-progress', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ api_key: apiKey })
+  });
+  const data = await res.json();
+  btn.innerHTML = '✦ AI Analysis';
+  btn.disabled = false;
+  banner.style.display = 'block';
+  banner.innerHTML = `<span style="color:var(--accent2);font-weight:600;margin-right:8px">✦ AI Insight:</span>${data.analysis}`;
+}
+
+load();
+</script>
+{% endblock %}

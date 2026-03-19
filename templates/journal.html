@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Journal — StudyMate{% endblock %}
+{% block content %}
+<div class="page fade-in">
+  <div class="page-header">
+    <h1 class="page-title">Captain's Log ✦</h1>
+    <p class="page-sub">Daily reflections with AI-powered insights</p>
+  </div>
+
+  <div class="grid-main">
+    <div>
+      <!-- New Entry -->
+      <div class="card mb-3">
+        <div class="card-title">NEW ENTRY</div>
+        <div class="mood-row">
+          <button class="mood-btn" data-mood="great" onclick="selectMood('great',this)" title="Great">😄</button>
+          <button class="mood-btn" data-mood="good" onclick="selectMood('good',this)" title="Good">🙂</button>
+          <button class="mood-btn" data-mood="neutral" onclick="selectMood('neutral',this)" title="Neutral">😐</button>
+          <button class="mood-btn" data-mood="tired" onclick="selectMood('tired',this)" title="Tired">😴</button>
+          <button class="mood-btn" data-mood="stressed" onclick="selectMood('stressed',this)" title="Stressed">😤</button>
+        </div>
+        <textarea id="journalContent" class="input" rows="5" placeholder="How was your study session today? What did you learn? What was challenging? What are you proud of?..."></textarea>
+        <div class="flex justify-between items-center mt-3">
+          <span class="text-xs text-muted">AI will generate a personalized reflection if API key is set</span>
+          <button class="btn-primary" onclick="saveEntry()" id="saveEntryBtn">Save Entry ✦</button>
+        </div>
+      </div>
+
+      <!-- Entries List -->
+      <div id="entriesList">
+        <div class="loader" style="margin:20px auto;display:block"></div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card">
+        <div class="card-title">JOURNALING TIPS</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="padding:10px;background:var(--bg3);border-radius:var(--radius-sm);font-size:0.8rem;line-height:1.5;color:var(--text2)">📝 Write about what you actually studied, not just what you planned to study.</div>
+          <div style="padding:10px;background:var(--bg3);border-radius:var(--radius-sm);font-size:0.8rem;line-height:1.5;color:var(--text2)">💡 Mention one thing you finally understood today — reinforces memory.</div>
+          <div style="padding:10px;background:var(--bg3);border-radius:var(--radius-sm);font-size:0.8rem;line-height:1.5;color:var(--text2)">🎯 Set one intention for tomorrow to maintain momentum.</div>
+          <div style="padding:10px;background:var(--bg3);border-radius:var(--radius-sm);font-size:0.8rem;line-height:1.5;color:var(--text2)">😤 It's okay to write about struggles. The AI uses them to give better advice.</div>
+        </div>
+      </div>
+
+      <div class="card" style="background:rgba(124,111,247,0.06);border-color:rgba(124,111,247,0.2)">
+        <div class="card-title" style="color:var(--accent2)">✦ AI REFLECTION</div>
+        <p class="text-xs text-muted" style="line-height:1.6">After saving your entry, Nova analyzes your mood, progress, and goals to generate a personalized 2-3 sentence reflection with actionable advice for tomorrow.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+let selectedMood = 'neutral';
+function selectMood(mood, btn) {
+  selectedMood = mood;
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function loadEntries() {
+  const res = await fetch('/api/journal');
+  const entries = await res.json();
+  const el = document.getElementById('entriesList');
+  if (!entries.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📖</div><div class="empty-text">No journal entries yet. Write your first one!</div></div>';
+    return;
+  }
+  const moodEmoji = { great:'😄', good:'🙂', neutral:'😐', tired:'😴', stressed:'😤' };
+  el.innerHTML = entries.map(e => `
+    <div class="journal-entry">
+      <div class="journal-date">
+        ${moodEmoji[e.mood] || '😐'} ${e.date}
+      </div>
+      <div class="journal-content">${e.content}</div>
+      ${e.ai_reflection ? `
+        <div class="ai-reflection">
+          <span style="flex-shrink:0">✦</span>
+          <span>${e.ai_reflection}</span>
+        </div>
+      ` : ''}
+    </div>
+  `).join('');
+}
+
+async function saveEntry() {
+  const content = document.getElementById('journalContent').value.trim();
+  if (!content) { showNotif('Write something first!', 'error'); return; }
+  const btn = document.getElementById('saveEntryBtn');
+  btn.innerHTML = '<span class="loader"></span>';
+  btn.disabled = true;
+  const apiKey = localStorage.getItem('sm_api_key') || '';
+  const res = await fetch('/api/journal', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ content, mood: selectedMood, api_key: apiKey })
+  });
+  const data = await res.json();
+  btn.innerHTML = 'Save Entry ✦'; btn.disabled = false;
+  document.getElementById('journalContent').value = '';
+  if (data.ai_reflection) showNotif('AI reflection generated! ✦', 'success');
+  else showNotif('Entry saved!', 'success');
+  loadEntries();
+}
+
+loadEntries();
+</script>
+{% endblock %}

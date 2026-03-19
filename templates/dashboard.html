@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — StudyMate AI{% endblock %}
+{% block content %}
+<div class="page fade-in">
+  <div class="page-header flex justify-between items-center">
+    <div>
+      <h1 class="page-title" id="greeting">Good morning ✦</h1>
+      <p class="page-sub" id="greetingName">Loading your dashboard...</p>
+    </div>
+    <div class="flex gap-2 items-center">
+      <div class="streak-badge" id="streakBadge">🔥 0 day streak</div>
+    </div>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="stats-row">
+    <div class="stat-card" style="--accent-color: var(--accent)">
+      <div class="stat-label">TOTAL FOCUS TIME</div>
+      <div class="stat-value" id="statFocus">—<span class="stat-unit">h</span></div>
+      <div class="stat-change" id="statWeekFocus">This week: —h</div>
+    </div>
+    <div class="stat-card" style="--accent-color: var(--green)">
+      <div class="stat-label">TASKS COMPLETED</div>
+      <div class="stat-value" id="statTasks">—</div>
+      <div class="stat-change" id="statTasksTotal">of — total</div>
+    </div>
+    <div class="stat-card" style="--accent-color: var(--cyan)">
+      <div class="stat-label">SUBJECTS TRACKED</div>
+      <div class="stat-value" id="statSubjects">—</div>
+      <div class="stat-change">Active courses</div>
+    </div>
+    <div class="stat-card" style="--accent-color: var(--amber)">
+      <div class="stat-label">CURRENT STREAK</div>
+      <div class="stat-value" id="statStreak">—<span class="stat-unit">d</span></div>
+      <div class="stat-change">🔥 Keep it up!</div>
+    </div>
+  </div>
+
+  <!-- Main Grid -->
+  <div class="grid-main">
+    <div>
+      <!-- Weekly Focus Chart -->
+      <div class="card mb-3">
+        <div class="card-title">FOCUS THIS WEEK</div>
+        <canvas id="weeklyChart" height="90"></canvas>
+      </div>
+
+      <!-- Subject Progress -->
+      <div class="card">
+        <div class="card-title flex justify-between">
+          <span>SUBJECTS</span>
+          <button class="btn-ghost btn-sm" onclick="window.location='/planner'">+ Add Subject</button>
+        </div>
+        <div id="subjectsList">
+          <div class="empty-state">
+            <div class="empty-icon">📚</div>
+            <div class="empty-text">No subjects yet — add one in the Planner</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="flex flex-col gap-3">
+      <!-- Today's Tasks -->
+      <div class="card">
+        <div class="card-title flex justify-between items-center">
+          <span>TODAY'S TASKS</span>
+          <button class="btn-primary btn-sm" onclick="openAddTask()">+ Add</button>
+        </div>
+        <div id="tasksList">
+          <div class="loader" style="margin:16px auto;display:block;width:20px;height:20px"></div>
+        </div>
+        <button class="btn-ghost w-full" style="margin-top:10px;justify-content:center" onclick="window.location='/planner'">
+          View All Tasks →
+        </button>
+      </div>
+
+      <!-- Quick Focus -->
+      <div class="card">
+        <div class="card-title">QUICK START</div>
+        <p class="text-sm text-muted mb-3">Start a focus session now</p>
+        <button class="btn-primary w-full" style="justify-content:center" onclick="window.location='/focus'">
+          🎯 Start Focusing
+        </button>
+        <div style="margin-top:10px;text-align:center;font-size:0.78rem;color:var(--text2)" id="todayFocusLabel">
+          Today: 0 min focused
+        </div>
+      </div>
+
+      <!-- AI Tip -->
+      <div class="card" style="background:linear-gradient(135deg,rgba(124,111,247,0.12),rgba(34,211,238,0.06));border-color:rgba(124,111,247,0.3)">
+        <div class="card-title" style="color:var(--accent2)">✦ AI INSIGHT</div>
+        <p class="text-sm" id="aiInsight" style="line-height:1.6;color:var(--text)">
+          Add your API key in Settings to get personalized daily insights powered by AI.
+        </p>
+        <button class="btn-ghost btn-sm" style="margin-top:10px;color:var(--accent2);border-color:rgba(124,111,247,0.3)" onclick="window.location='/tutor'">
+          Chat with AI Tutor →
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Task Modal -->
+<div class="modal-overlay" id="addTaskModal" onclick="closeAddTask(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Add Task</h3>
+      <button onclick="closeAddTask()" class="modal-close">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Task Title</label>
+      <input type="text" id="taskTitle" class="input" placeholder="e.g. Read chapter 5 of Physics">
+    </div>
+    <div class="flex gap-2 mb-3">
+      <div style="flex:1">
+        <label class="form-label">Priority</label>
+        <select id="taskPriority" class="select" style="width:100%">
+          <option value="high">🔴 High</option>
+          <option value="medium" selected>🟡 Medium</option>
+          <option value="low">🟢 Low</option>
+        </select>
+      </div>
+      <div style="flex:1">
+        <label class="form-label">Due Date</label>
+        <input type="date" id="taskDue" class="input">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeAddTask()">Cancel</button>
+      <button class="btn-primary" onclick="addTask()" id="addTaskBtn">Add Task</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let weeklyChart = null;
+
+async function loadDashboard() {
+  let data;
+  try {
+    const res = await fetch('/api/user/stats');
+    data = await res.json();
+  } catch(e) {
+    document.getElementById('greetingName').textContent = 'Failed to load — try refreshing.';
+    return;
+  }
+
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  document.getElementById('greeting').textContent = greet + ' ✦';
+  document.getElementById('greetingName').textContent = `Here's your study overview, ${data.name}`;
+  document.getElementById('statFocus').innerHTML = `${data.total_focus_hours || 0}<span class="stat-unit">h</span>`;
+  document.getElementById('statWeekFocus').textContent = `This week: ${data.week_focus_hours}h`;
+  document.getElementById('statTasks').textContent = data.tasks_done || 0;
+  document.getElementById('statTasksTotal').textContent = `of ${data.tasks_total || 0} total`;
+  document.getElementById('statSubjects').textContent = data.subjects_count || 0;
+  document.getElementById('statStreak').innerHTML = `${data.streak || 0}<span class="stat-unit">d</span>`;
+  document.getElementById('streakBadge').textContent = `🔥 ${data.streak || 0} day streak`;
+
+  // Avatar
+  const av = document.getElementById('topbarAvatar');
+  if (data.avatar_b64) {
+    av.style.backgroundImage = `url(${data.avatar_b64})`;
+    av.style.backgroundSize = 'cover';
+    av.style.backgroundPosition = 'center';
+    av.textContent = '';
+  } else {
+    av.textContent = data.name[0].toUpperCase();
+    av.style.background = data.avatar_color;
+  }
+
+  // Weekly chart
+  const labels = data.daily_focus.map(d => d.date);
+  const values = data.daily_focus.map(d => Math.round(d.minutes / 60 * 10) / 10);
+  if (weeklyChart) weeklyChart.destroy();
+  weeklyChart = new Chart(document.getElementById('weeklyChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: values.map((v, i) => i === 6 ? '#7C6FF7' : 'rgba(124,111,247,0.3)'),
+        borderRadius: 6,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => `${ctx.parsed.y}h focused` }
+      }},
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#9090B0', font: { size: 11 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#9090B0', font: { size: 11 } }, beginAtZero: true }
+      }
+    }
+  });
+
+  // Tasks
+  renderTasks(data.recent_tasks);
+
+  // Subjects
+  renderSubjects(data.subjects);
+
+  // Today focus
+  const todayMins = data.daily_focus[6]?.minutes || 0;
+  document.getElementById('todayFocusLabel').textContent = `Today: ${todayMins} min focused`;
+
+  // Insights
+  const apiKey = localStorage.getItem('sm_api_key') || '';
+  if (apiKey && data.subjects.length > 0) {
+    const r = await fetch('/api/ai/analyze-progress', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ api_key: apiKey })
+    });
+    const d = await r.json();
+    document.getElementById('aiInsight').textContent = d.analysis;
+  }
+}
+
+function renderTasks(tasks) {
+  const el = document.getElementById('tasksList');
+  if (!tasks.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">No pending tasks</div></div>';
+    return;
+  }
+  el.innerHTML = tasks.map(t => `
+    <div class="task-item" id="task-${t.id}">
+      <div class="task-check ${t.completed ? 'checked' : ''}" onclick="toggleTask(${t.id})"></div>
+      <div class="priority-dot ${t.priority}"></div>
+      <span class="task-title ${t.completed ? 'done' : ''}">${t.title}</span>
+      ${t.ai_generated ? '<span class="ai-tag">AI</span>' : ''}
+    </div>
+  `).join('');
+}
+
+function renderSubjects(subjects) {
+  const el = document.getElementById('subjectsList');
+  if (!subjects.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📚</div><div class="empty-text">Add subjects in the Planner</div></div>';
+    return;
+  }
+  el.innerHTML = subjects.map(s => {
+    const pct = Math.min(100, Math.round((s.studied / s.target) * 100)) || 0;
+    return `
+      <div class="subject-card mb-3" style="--subject-color:${s.color}">
+        <div class="flex justify-between items-center mb-2">
+          <span class="subject-name">${s.name}</span>
+          <span class="text-sm text-muted">${s.studied}h / ${s.target}h</span>
+        </div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" style="width:${pct}%;background:${s.color}"></div>
+        </div>
+        <div class="text-xs text-muted mt-2">${pct}% complete</div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function toggleTask(id) {
+  await fetch(`/api/tasks/${id}/toggle`, { method: 'POST' });
+  const el = document.getElementById(`task-${id}`);
+  const check = el.querySelector('.task-check');
+  const title = el.querySelector('.task-title');
+  check.classList.toggle('checked');
+  title.classList.toggle('done');
+  el.classList.toggle('done');
+}
+
+function openAddTask() { document.getElementById('addTaskModal').classList.add('open'); }
+function closeAddTask(e) {
+  if (!e || e.target === document.getElementById('addTaskModal')) {
+    document.getElementById('addTaskModal').classList.remove('open');
+  }
+}
+
+async function addTask() {
+  const title = document.getElementById('taskTitle').value.trim();
+  if (!title) return;
+  const btn = document.getElementById('addTaskBtn');
+  btn.innerHTML = '<span class="loader"></span>';
+  await fetch('/api/tasks', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      title,
+      priority: document.getElementById('taskPriority').value,
+      due_date: document.getElementById('taskDue').value || null
+    })
+  });
+  btn.innerHTML = 'Add Task';
+  closeAddTask();
+  loadDashboard();
+  showNotif('Task added!', 'success');
+}
+
+loadDashboard();
+</script>
+{% endblock %}
