@@ -141,10 +141,10 @@ async function generateAnalysis() {
   const banner = document.getElementById('analysisBanner');
   btn.innerHTML = '<span class="loader"></span>';
   btn.disabled = true;
-  const apiKey = localStorage.getItem('sm_api_key') || '';
+  const apiKey = '';
   const res = await fetch('/api/ai/analyze-progress', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ api_key: apiKey })
+    body: JSON.stringify({})
   });
   const data = await res.json();
   btn.innerHTML = '✦ AI Analysis';

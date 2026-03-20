@@ -140,7 +140,7 @@ async function sendMessage() {
   var input = document.getElementById('chatInput');
   var msg = input.value.trim();
   if (!msg) return;
-  var apiKey = localStorage.getItem('sm_api_key') || '';
+  var apiKey = '';
   input.value = '';
   autoResize(input);
   appendMsg('user', msg, false);
@@ -149,7 +149,7 @@ async function sendMessage() {
   var res = await fetch('/api/ai/tutor', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message: msg, api_key: apiKey, history: chatHistory.slice(-10) })
+    body: JSON.stringify({ message: msg, history: chatHistory.slice(-10) })
   });
   var data = await res.json();
   typing.remove();

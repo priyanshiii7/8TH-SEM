@@ -92,10 +92,10 @@ async function saveEntry() {
   const btn = document.getElementById('saveEntryBtn');
   btn.innerHTML = '<span class="loader"></span>';
   btn.disabled = true;
-  const apiKey = localStorage.getItem('sm_api_key') || '';
+  const apiKey = '';
   const res = await fetch('/api/journal', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ content, mood: selectedMood, api_key: apiKey })
+    body: JSON.stringify({ content, mood: selectedMood })
   });
   const data = await res.json();
   btn.innerHTML = 'Save Entry ✦'; btn.disabled = false;

@@ -8,9 +8,29 @@ import re
 import urllib.request
 import urllib.error
 
+# Load .env file in development
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+# ─── Server-side API key (never exposed to browser) ──────────────────────────
+# Set this in your .env file or Railway/Render environment variables
+# GEMINI_API_KEY=your_key_here
+SERVER_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+
+# ─── Server-side API key — set in environment, never exposed to users ─────────
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'studymate-secret-2024-change-in-prod')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///studymate.db'
+# Use PostgreSQL in production (Railway/Render), SQLite locally
+_db_url = os.environ.get('DATABASE_URL', 'sqlite:///studymate.db')
+# Railway gives postgres:// but SQLAlchemy needs postgresql://
+if _db_url.startswith('postgres://'):
+    _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -79,19 +99,14 @@ class ChatMessage(db.Model):
 
 # ─── Gemini AI Helper ─────────────────────────────────────────────────────────
 
-def call_ai(api_key, prompt, system_prompt=None):
+def call_ai(api_key_ignored, prompt, system_prompt=None):
     """
-    Universal AI caller. Detects key type and calls the right API:
-    - OpenRouter key (sk-or-...): free models via openrouter.ai
-    - Anthropic key (sk-ant-...): Claude via api.anthropic.com  
-    - Gemini key (AIza...): Google Gemini via generativelanguage.googleapis.com
+    Calls AI using the server-side GEMINI_API_KEY environment variable.
+    The api_key parameter is ignored — key is never sent to or stored by clients.
     """
-    if api_key.startswith('sk-or-'):
-        return _call_openrouter(api_key, prompt, system_prompt)
-    elif api_key.startswith('sk-ant-'):
-        return _call_anthropic(api_key, prompt, system_prompt)
-    else:
-        return _call_ai(api_key, prompt, system_prompt)
+    if not GEMINI_API_KEY:
+        raise Exception("AI not configured. Set GEMINI_API_KEY environment variable on the server.")
+    return _call_ai(GEMINI_API_KEY, prompt, system_prompt)
 
 def _call_openrouter(api_key, prompt, system_prompt=None):
     """OpenRouter - free tier at openrouter.ai, no credit card needed"""
@@ -558,9 +573,8 @@ def get_journal():
 def save_journal():
     data = request.get_json()
     uid = session['user_id']
-    api_key = data.get('api_key', '')
     ai_reflection = None
-    if api_key:
+    if GEMINI_API_KEY:
         try:
             ai_reflection = call_ai(
                 api_key,
@@ -632,7 +646,6 @@ def upload_picture():
 @login_required
 def generate_plan():
     data = request.get_json()
-    api_key = data.get('api_key', '')
     uid = session['user_id']
     subjects = Subject.query.filter_by(user_id=uid).all()
     context = data.get('context', 'Generate a study plan for today')
@@ -646,7 +659,7 @@ def generate_plan():
 
     pending_tasks = Task.query.filter_by(user_id=uid, completed=False).count()
 
-    if not api_key:
+    if not GEMINI_API_KEY:
         subject_name = subjects[0].name if subjects else 'your subject'
         day_match = re.search(r'(\d+)\s*days?', context.lower())
         days = int(day_match.group(1)) if day_match else None
@@ -666,7 +679,7 @@ def generate_plan():
                 {"title": "Create a one-page summary of key concepts", "priority": "medium"},
                 {"title": "Watch a supplementary video or re-read a confusing section", "priority": "low"},
             ]
-        return jsonify({'success': True, 'tasks': plan, 'note': 'Add Gemini API key for fully personalized plans'})
+        return jsonify({'success': True, 'tasks': plan, 'note': 'AI not configured on server'})
 
     try:
         prompt = f"""You are a smart study coach. Today is {today_str}.
@@ -685,7 +698,7 @@ Return ONLY a JSON array, no markdown fences, no extra text:
 
 Generate 5-7 tasks."""
 
-        raw = call_ai(api_key, prompt).strip()
+        raw = call_ai('', prompt).strip()
         raw = re.sub(r'^```[a-z]*\n?', '', raw, flags=re.MULTILINE).strip().rstrip('`').strip()
         tasks_data = json.loads(raw)
         saved = []
@@ -702,15 +715,14 @@ Generate 5-7 tasks."""
 @login_required
 def ai_tutor():
     data = request.get_json()
-    api_key = data.get('api_key', '')
     question = data.get('message', '')
     history = data.get('history', [])
     uid = session['user_id']
 
     db.session.add(ChatMessage(user_id=uid, role='user', content=question))
 
-    if not api_key:
-        response = "I'm Nova, your AI tutor! Add a free Gemini API key (click 'API Key' in the sidebar) to unlock me. Get one free at aistudio.google.com — no credit card needed!"
+    if not GEMINI_API_KEY:
+        response = "I'm Nova, your AI tutor! The AI service is not configured on this server yet."
         db.session.add(ChatMessage(user_id=uid, role='assistant', content=response))
         db.session.commit()
         return jsonify({'response': response})
@@ -730,7 +742,7 @@ Use simple formatting: bold for key terms, bullet points for lists. End with one
 Recent conversation:
 {history_text}"""
 
-        response = call_ai(api_key, f"Student: {question}\nNova:", system_prompt=system)
+        response = call_ai('', f"Student: {question}\nNova:", system_prompt=system)
         db.session.add(ChatMessage(user_id=uid, role='assistant', content=response))
         db.session.commit()
         return jsonify({'response': response})
@@ -741,7 +753,6 @@ Recent conversation:
 @login_required
 def analyze_progress():
     data = request.get_json()
-    api_key = data.get('api_key', '')
     uid = session['user_id']
     subjects = Subject.query.filter_by(user_id=uid).all()
     today = date.today()
@@ -751,12 +762,12 @@ def analyze_progress():
     tasks_done = Task.query.filter_by(user_id=uid, completed=True).count()
     tasks_total = Task.query.filter_by(user_id=uid).count()
 
-    if not api_key:
+    if not GEMINI_API_KEY:
         return jsonify({'analysis': f"You've studied {round(week_focus/60,1)} hours this week and completed {tasks_done}/{tasks_total} tasks. Add your Gemini API key for detailed AI analysis."})
 
     try:
         subject_data = "\n".join([f"- {s.name}: {s.studied_hours}h of {s.target_hours}h target" for s in subjects])
-        analysis = call_ai(api_key, f"""Student weekly data:
+        analysis = call_ai('', f"""Student weekly data:
 - Focus this week: {round(week_focus/60,1)} hours
 - Tasks: {tasks_done}/{tasks_total} completed
 - Subjects:
@@ -768,78 +779,21 @@ Write 3-4 sentences: specific numbers, one strength, one area to improve, one co
         return jsonify({'analysis': f'Could not generate analysis: {str(e)}'})
 
 
-@app.route('/api/test-ai')
-@login_required  
-def test_ai():
-    """Test if the stored API key works - with detailed diagnostics"""
-    api_key = session.get('api_key') or request.args.get('key', '')
-    if not api_key:
-        return jsonify({'error': 'No API key set. Click API Key in sidebar to add one.'})
-    
-    provider = 'OpenRouter' if api_key.startswith('sk-or-') else 'Anthropic' if api_key.startswith('sk-ant-') else 'Gemini'
-    
-    # For Gemini, run detailed per-model test
-    if provider == 'Gemini':
-        results = []
-        test_payload = json.dumps({
-            "contents": [{"parts": [{"text": "Say hello."}]}],
-            "generationConfig": {"maxOutputTokens": 20}
-        }).encode('utf-8')
-        models = [
-            ("v1beta", "gemini-2.0-flash"),
-            ("v1beta", "gemini-2.0-flash-lite"),
-            ("v1beta", "gemini-1.5-flash"),
-            ("v1",     "gemini-1.5-flash"),
-            ("v1beta", "gemini-1.5-flash-8b"),
-        ]
-        working = None
-        for version, model in models:
-            url = f"https://generativelanguage.googleapis.com/{version}/models/{model}:generateContent?key={api_key}"
-            req = urllib.request.Request(url, data=test_payload, headers={"Content-Type": "application/json"})
-            try:
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    r = json.loads(resp.read().decode())
-                    text = r['candidates'][0]['content']['parts'][0]['text']
-                    results.append({'model': f"{version}/{model}", 'status': 'OK ✓', 'response': text})
-                    working = model
-                    break
-            except urllib.error.HTTPError as e:
-                body = e.read().decode()
-                try:
-                    msg = json.loads(body).get('error', {}).get('message', '')[:80]
-                except:
-                    msg = body[:80]
-                results.append({'model': f"{version}/{model}", 'status': f'Error {e.code}', 'detail': msg})
-            except Exception as e:
-                results.append({'model': model, 'status': 'Failed', 'detail': str(e)[:60]})
-        
-        return jsonify({
-            'success': bool(working),
-            'provider': 'Gemini',
-            'working_model': working,
-            'all_results': results,
-            'key_preview': api_key[:12] + '...',
-            'fix_hint': None if working else 'Go to aistudio.google.com → Get API Key → Create API key in NEW project. Delete old key first.'
-        })
-    
-    # For other providers
-    try:
-        result = call_ai(api_key, "Say hello in 5 words.")
-        return jsonify({'success': True, 'provider': provider, 'response': result, 'key_preview': api_key[:12] + '...'})
-    except Exception as e:
-        return jsonify({'success': False, 'provider': provider, 'error': str(e)})
-
 @app.route('/api/settings/apikey', methods=['POST'])
 @login_required
 def save_api_key():
-    data = request.get_json()
-    session['api_key'] = data.get('api_key', '')
+    # API key is now server-side only — this endpoint kept for compatibility
     return jsonify({'success': True})
 
 @app.route('/api/settings/apikey', methods=['GET'])
 @login_required
 def get_api_key():
-    return jsonify({'has_key': bool(session.get('api_key', ''))})
+    return jsonify({'has_key': bool(GEMINI_API_KEY)})
+
+@app.route('/api/ai/status')
+@login_required
+def ai_status():
+    return jsonify({'available': bool(GEMINI_API_KEY)})
 
 # ─── Run ──────────────────────────────────────────────────────────────────────
 

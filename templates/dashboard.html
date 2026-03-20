@@ -5,7 +5,7 @@
   <div class="page-header flex justify-between items-center">
     <div>
       <h1 class="page-title" id="greeting">Good morning ✦</h1>
-      <p class="page-sub" id="greetingName">Loading your dashboard...</p>
+      <p class="page-sub" id="greetingName">Welcome back, {{ session.get('user_name', '') }} — here's your overview</p>
     </div>
     <div class="flex gap-2 items-center">
       <div class="streak-badge" id="streakBadge">🔥 0 day streak</div>
@@ -16,22 +16,22 @@
   <div class="stats-row">
     <div class="stat-card" style="--accent-color: var(--accent)">
       <div class="stat-label">TOTAL FOCUS TIME</div>
-      <div class="stat-value" id="statFocus">—<span class="stat-unit">h</span></div>
-      <div class="stat-change" id="statWeekFocus">This week: —h</div>
+      <div class="stat-value" id="statFocus"><span class="skel" style="width:50px;height:32px;display:inline-block"></span></div>
+      <div class="stat-change" id="statWeekFocus"><span class="skel" style="width:80px;height:12px;display:inline-block"></span></div>
     </div>
     <div class="stat-card" style="--accent-color: var(--green)">
       <div class="stat-label">TASKS COMPLETED</div>
-      <div class="stat-value" id="statTasks">—</div>
-      <div class="stat-change" id="statTasksTotal">of — total</div>
+      <div class="stat-value" id="statTasks"><span class="skel" style="width:40px;height:32px;display:inline-block"></span></div>
+      <div class="stat-change" id="statTasksTotal"><span class="skel" style="width:70px;height:12px;display:inline-block"></span></div>
     </div>
     <div class="stat-card" style="--accent-color: var(--cyan)">
       <div class="stat-label">SUBJECTS TRACKED</div>
-      <div class="stat-value" id="statSubjects">—</div>
+      <div class="stat-value" id="statSubjects"><span class="skel" style="width:30px;height:32px;display:inline-block"></span></div>
       <div class="stat-change">Active courses</div>
     </div>
     <div class="stat-card" style="--accent-color: var(--amber)">
       <div class="stat-label">CURRENT STREAK</div>
-      <div class="stat-value" id="statStreak">—<span class="stat-unit">d</span></div>
+      <div class="stat-value" id="statStreak"><span class="skel" style="width:40px;height:32px;display:inline-block"></span></div>
       <div class="stat-change">🔥 Keep it up!</div>
     </div>
   </div>
@@ -140,14 +140,25 @@
 let weeklyChart = null;
 
 async function loadDashboard() {
+  // Show cached data instantly if available
+  const cached = sessionStorage.getItem('sm_stats');
+  if (cached) {
+    try { renderStats(JSON.parse(cached)); } catch(e) {}
+  }
+
   let data;
   try {
     const res = await fetch('/api/user/stats');
     data = await res.json();
+    sessionStorage.setItem('sm_stats', JSON.stringify(data));
   } catch(e) {
     document.getElementById('greetingName').textContent = 'Failed to load — try refreshing.';
     return;
   }
+  renderStats(data);
+}
+
+async function renderStats(data) {
 
   const hour = new Date().getHours();
   const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -211,12 +222,12 @@ async function loadDashboard() {
   document.getElementById('todayFocusLabel').textContent = `Today: ${todayMins} min focused`;
 
   // Insights
-  const apiKey = localStorage.getItem('sm_api_key') || '';
+  const apiKey = '';
   if (apiKey && data.subjects.length > 0) {
     const r = await fetch('/api/ai/analyze-progress', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ api_key: apiKey })
+      body: JSON.stringify({})
     });
     const d = await r.json();
     document.getElementById('aiInsight').textContent = d.analysis;

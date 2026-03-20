@@ -291,7 +291,7 @@ async function generateAIPlan() {
   const context = document.getElementById('planContext').value.trim();
   const btn = document.getElementById('genBtn');
   const result = document.getElementById('planResult');
-  const apiKey = localStorage.getItem('sm_api_key') || '';
+  const apiKey = '';
 
   btn.innerHTML = '<span class="loader"></span> Generating...';
   btn.disabled = true;
@@ -299,7 +299,7 @@ async function generateAIPlan() {
 
   const res = await fetch('/api/ai/generate-plan', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ context, api_key: apiKey })
+    body: JSON.stringify({ context })
   });
   const data = await res.json();
   btn.innerHTML = '✦ Generate Plan';

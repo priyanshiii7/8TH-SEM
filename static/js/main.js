@@ -1,10 +1,3 @@
-// ─── API Key Management ────────────────────────────────────────────────────────
-function openApiModal() {
-  const modal = document.getElementById('apiModal');
-  modal.classList.add('open');
-  const saved = localStorage.getItem('sm_api_key') || '';
-  if (saved) document.getElementById('apiKeyInput').value = saved;
-}
 
 function closeApiModal(e) {
   if (!e || e.target === document.getElementById('apiModal')) {
@@ -16,7 +9,7 @@ async function saveApiKey() {
   const key = document.getElementById('apiKeyInput').value.trim();
   const status = document.getElementById('apiKeyStatus');
   if (!key) { status.textContent = 'Please enter an API key'; status.className = 'api-status err'; return; }
-  localStorage.setItem('sm_api_key', key);
+  
   await fetch('/api/settings/apikey', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ api_key: key })
@@ -59,14 +52,7 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// ─── Restore API key from localStorage to session ─────────────────────────────
-const savedKey = localStorage.getItem('sm_api_key');
-if (savedKey) {
-  fetch('/api/settings/apikey', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ api_key: savedKey })
-  });
-}
+// AI key is managed server-side
 
 
 // ─── Load topbar avatar on every page ─────────────────────────────────────────
