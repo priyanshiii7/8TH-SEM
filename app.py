@@ -79,41 +79,147 @@ class ChatMessage(db.Model):
 
 # ─── Gemini AI Helper ─────────────────────────────────────────────────────────
 
-def call_gemini(api_key, prompt, system_prompt=None):
-    """Call Google Gemini API — free key at aistudio.google.com"""
+def call_ai(api_key, prompt, system_prompt=None):
+    """
+    Universal AI caller. Detects key type and calls the right API:
+    - OpenRouter key (sk-or-...): free models via openrouter.ai
+    - Anthropic key (sk-ant-...): Claude via api.anthropic.com  
+    - Gemini key (AIza...): Google Gemini via generativelanguage.googleapis.com
+    """
+    if api_key.startswith('sk-or-'):
+        return _call_openrouter(api_key, prompt, system_prompt)
+    elif api_key.startswith('sk-ant-'):
+        return _call_anthropic(api_key, prompt, system_prompt)
+    else:
+        return _call_ai(api_key, prompt, system_prompt)
+
+def _call_openrouter(api_key, prompt, system_prompt=None):
+    """OpenRouter - free tier at openrouter.ai, no credit card needed"""
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
+
+    # Free models on OpenRouter — tries each until one works
+    free_models = [
+        "meta-llama/llama-3.2-3b-instruct:free",
+        "meta-llama/llama-3.1-8b-instruct:free",
+        "mistralai/mistral-7b-instruct:free",
+        "google/gemma-2-9b-it:free",
+        "microsoft/phi-3-mini-128k-instruct:free",
+        "qwen/qwen-2-7b-instruct:free",
+    ]
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}",
+        "HTTP-Referer": "http://localhost:5000",
+        "X-Title": "StudyMate AI"
+    }
+
+    last_err = "No free models available"
+    for model in free_models:
+        payload = json.dumps({
+            "model": model,
+            "messages": messages,
+            "max_tokens": 1024,
+            "temperature": 0.7
+        }).encode('utf-8')
+        req = urllib.request.Request(
+            "https://openrouter.ai/api/v1/chat/completions",
+            data=payload, headers=headers
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                result = json.loads(resp.read().decode())
+                return result['choices'][0]['message']['content']
+        except urllib.error.HTTPError as e:
+            body = e.read().decode()
+            if e.code in (401, 403):
+                raise Exception("Invalid OpenRouter key. Get a free one at openrouter.ai")
+            last_err = f"{model.split('/')[1]}: {e.code}"
+            continue
+        except Exception as e:
+            last_err = str(e)
+            continue
+    raise Exception(f"All OpenRouter free models failed. Last: {last_err}. Try adding credits at openrouter.ai")
+
+def _call_anthropic(api_key, prompt, system_prompt=None):
+    """Anthropic Claude API"""
+    messages = [{"role": "user", "content": prompt}]
+    body = {
+        "model": "claude-haiku-4-5-20251001",
+        "max_tokens": 1024,
+        "messages": messages
+    }
+    if system_prompt:
+        body["system"] = system_prompt
+    
+    payload = json.dumps(body).encode('utf-8')
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01"
+        }
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = json.loads(resp.read().decode())
+            return result['content'][0]['text']
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        if e.code in (401, 403):
+            raise Exception("Invalid Anthropic key. Get one at console.anthropic.com")
+        raise Exception(f"Anthropic error {e.code}: {body[:200]}")
+
+def _call_ai(api_key, prompt, system_prompt=None):
+    """Google Gemini API"""
     full_prompt = (system_prompt + "\n\n" + prompt) if system_prompt else prompt
     payload = json.dumps({
         "contents": [{"parts": [{"text": full_prompt}]}],
-        "generationConfig": {"maxOutputTokens": 1024, "temperature": 0.7}
+        "generationConfig": {"maxOutputTokens": 600, "temperature": 0.7}
     }).encode('utf-8')
 
+    # Only models confirmed available for this key
     candidates = [
         ("v1beta", "gemini-2.0-flash"),
         ("v1beta", "gemini-2.0-flash-lite"),
-        ("v1beta", "gemini-1.5-flash"),
-        ("v1",     "gemini-1.5-flash"),
-        ("v1beta", "gemini-1.0-pro"),
+        ("v1beta", "gemini-2.5-flash"),
+        ("v1beta", "gemini-flash-latest"),
     ]
-    last_err = "No models available"
+    last_err = "No Gemini models available"
     for version, model in candidates:
         url = f"https://generativelanguage.googleapis.com/{version}/models/{model}:generateContent?key={api_key}"
         req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
         try:
-            with urllib.request.urlopen(req, timeout=20) as resp:
+            with urllib.request.urlopen(req, timeout=25) as resp:
                 result = json.loads(resp.read().decode())
                 return result['candidates'][0]['content']['parts'][0]['text']
         except urllib.error.HTTPError as e:
             body = e.read().decode()
             if e.code in (401, 403):
-                raise Exception("Invalid API key. Get a free key at aistudio.google.com")
+                raise Exception("Invalid Gemini key. Get a free one at aistudio.google.com")
+            if e.code == 429:
+                import time
+                time.sleep(5)
+                try:
+                    with urllib.request.urlopen(req, timeout=25) as resp2:
+                        result = json.loads(resp2.read().decode())
+                        return result['candidates'][0]['content']['parts'][0]['text']
+                except:
+                    last_err = f"{model} rate limited (429) — wait 60s and retry"
+                    continue
             if e.code == 400:
-                raise Exception(f"Bad request: {body[:200]}")
-            last_err = f"{model} not available ({e.code})"
+                raise Exception(f"Gemini bad request: {body[:200]}")
+            last_err = f"{model}({e.code})"
             continue
         except Exception as e:
             last_err = str(e)
             continue
-    raise Exception(f"All Gemini models failed. Last error: {last_err}")
+    raise Exception(f"Gemini failed: {last_err}")
 
 # ─── Auth helpers ─────────────────────────────────────────────────────────────
 
@@ -456,7 +562,7 @@ def save_journal():
     ai_reflection = None
     if api_key:
         try:
-            ai_reflection = call_gemini(
+            ai_reflection = call_ai(
                 api_key,
                 f"A student wrote this journal entry: '{data['content']}'\n\nWrite a warm 2-3 sentence reflection. Acknowledge feelings, highlight something positive, give one actionable insight for tomorrow. Be genuine not generic."
             )
@@ -579,7 +685,7 @@ Return ONLY a JSON array, no markdown fences, no extra text:
 
 Generate 5-7 tasks."""
 
-        raw = call_gemini(api_key, prompt).strip()
+        raw = call_ai(api_key, prompt).strip()
         raw = re.sub(r'^```[a-z]*\n?', '', raw, flags=re.MULTILINE).strip().rstrip('`').strip()
         tasks_data = json.loads(raw)
         saved = []
@@ -617,14 +723,14 @@ def ai_tutor():
             role = "Student" if h['role'] == 'user' else "Nova"
             history_text += f"{role}: {h['content']}\n"
 
-        system = f"""You are Nova, an enthusiastic and brilliant AI study tutor. Student is studying: {subject_names}.
-Personality: warm, encouraging, uses analogies, explains simply, emojis occasionally, asks follow-up questions.
-Always give clear examples, check understanding, suggest next steps.
+        system = f"""You are Nova, a brilliant AI study tutor. Student is studying: {subject_names}.
+Be warm, clear, and use analogies. Keep responses concise — 3-5 sentences max unless asked for detail.
+Use simple formatting: bold for key terms, bullet points for lists. End with one follow-up question.
 
 Recent conversation:
 {history_text}"""
 
-        response = call_gemini(api_key, f"Student: {question}\nNova:", system_prompt=system)
+        response = call_ai(api_key, f"Student: {question}\nNova:", system_prompt=system)
         db.session.add(ChatMessage(user_id=uid, role='assistant', content=response))
         db.session.commit()
         return jsonify({'response': response})
@@ -650,7 +756,7 @@ def analyze_progress():
 
     try:
         subject_data = "\n".join([f"- {s.name}: {s.studied_hours}h of {s.target_hours}h target" for s in subjects])
-        analysis = call_gemini(api_key, f"""Student weekly data:
+        analysis = call_ai(api_key, f"""Student weekly data:
 - Focus this week: {round(week_focus/60,1)} hours
 - Tasks: {tasks_done}/{tasks_total} completed
 - Subjects:
@@ -660,6 +766,68 @@ Write 3-4 sentences: specific numbers, one strength, one area to improve, one co
         return jsonify({'analysis': analysis})
     except Exception as e:
         return jsonify({'analysis': f'Could not generate analysis: {str(e)}'})
+
+
+@app.route('/api/test-ai')
+@login_required  
+def test_ai():
+    """Test if the stored API key works - with detailed diagnostics"""
+    api_key = session.get('api_key') or request.args.get('key', '')
+    if not api_key:
+        return jsonify({'error': 'No API key set. Click API Key in sidebar to add one.'})
+    
+    provider = 'OpenRouter' if api_key.startswith('sk-or-') else 'Anthropic' if api_key.startswith('sk-ant-') else 'Gemini'
+    
+    # For Gemini, run detailed per-model test
+    if provider == 'Gemini':
+        results = []
+        test_payload = json.dumps({
+            "contents": [{"parts": [{"text": "Say hello."}]}],
+            "generationConfig": {"maxOutputTokens": 20}
+        }).encode('utf-8')
+        models = [
+            ("v1beta", "gemini-2.0-flash"),
+            ("v1beta", "gemini-2.0-flash-lite"),
+            ("v1beta", "gemini-1.5-flash"),
+            ("v1",     "gemini-1.5-flash"),
+            ("v1beta", "gemini-1.5-flash-8b"),
+        ]
+        working = None
+        for version, model in models:
+            url = f"https://generativelanguage.googleapis.com/{version}/models/{model}:generateContent?key={api_key}"
+            req = urllib.request.Request(url, data=test_payload, headers={"Content-Type": "application/json"})
+            try:
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    r = json.loads(resp.read().decode())
+                    text = r['candidates'][0]['content']['parts'][0]['text']
+                    results.append({'model': f"{version}/{model}", 'status': 'OK ✓', 'response': text})
+                    working = model
+                    break
+            except urllib.error.HTTPError as e:
+                body = e.read().decode()
+                try:
+                    msg = json.loads(body).get('error', {}).get('message', '')[:80]
+                except:
+                    msg = body[:80]
+                results.append({'model': f"{version}/{model}", 'status': f'Error {e.code}', 'detail': msg})
+            except Exception as e:
+                results.append({'model': model, 'status': 'Failed', 'detail': str(e)[:60]})
+        
+        return jsonify({
+            'success': bool(working),
+            'provider': 'Gemini',
+            'working_model': working,
+            'all_results': results,
+            'key_preview': api_key[:12] + '...',
+            'fix_hint': None if working else 'Go to aistudio.google.com → Get API Key → Create API key in NEW project. Delete old key first.'
+        })
+    
+    # For other providers
+    try:
+        result = call_ai(api_key, "Say hello in 5 words.")
+        return jsonify({'success': True, 'provider': provider, 'response': result, 'key_preview': api_key[:12] + '...'})
+    except Exception as e:
+        return jsonify({'success': False, 'provider': provider, 'error': str(e)})
 
 @app.route('/api/settings/apikey', methods=['POST'])
 @login_required

@@ -8,17 +8,21 @@
 .nova-avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--cyan)); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
 .nova-name { font-family: var(--font-display); font-weight: 700; font-size: 1rem; }
 .nova-status { font-size: 0.75rem; color: var(--green); display: flex; align-items: center; gap: 5px; }
-.nova-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+.nova-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); display:inline-block; }
 .chat-input-area { padding: 14px; border-top: 1px solid var(--border); display: flex; gap: 8px; background: var(--bg2); }
 .chat-input { flex: 1; background: var(--bg3); border: 1px solid var(--border2); border-radius: 10px; padding: 10px 14px; font-size: 0.88rem; color: var(--text); outline: none; resize: none; max-height: 120px; font-family: var(--font-body); transition: border-color 0.2s; }
 .chat-input:focus { border-color: var(--accent); }
-.send-btn { width: 42px; height: 42px; border-radius: 10px; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; align-self: flex-end; }
+.send-btn { width: 42px; height: 42px; border-radius: 10px; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; align-self: flex-end; cursor: pointer; border: none; }
 .send-btn:hover { background: var(--accent2); transform: scale(1.05); }
 .sidebar-panel { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
-.quick-prompt { padding: 10px 13px; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.82rem; cursor: pointer; transition: all 0.2s; text-align: left; color: var(--text); }
+.quick-prompt { padding: 10px 13px; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.82rem; cursor: pointer; transition: all 0.2s; text-align: left; color: var(--text); width: 100%; margin-bottom: 4px; }
 .quick-prompt:hover { border-color: var(--accent); background: rgba(124,111,247,0.1); color: var(--accent2); }
 .subject-btn { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg3); font-size: 0.8rem; cursor: pointer; transition: all 0.2s; text-align: left; color: var(--text); width: 100%; display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .subject-btn:hover { border-color: var(--accent); }
+.msg-content strong { font-weight: 700; }
+.msg-content em { font-style: italic; }
+.msg-content code { background: rgba(255,255,255,0.12); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.85em; }
+.msg-content .bullet { display: block; margin: 2px 0; padding-left: 14px; }
 @media(max-width:900px){ .tutor-layout { grid-template-columns: 1fr; } .sidebar-panel { display: none; } }
 </style>
 {% endblock %}
@@ -28,9 +32,7 @@
     <h1 class="page-title">AI Tutor ✦</h1>
     <p class="page-sub">Nova — your personal AI study companion</p>
   </div>
-
   <div class="tutor-layout" style="flex:1">
-    <!-- Chat -->
     <div class="chat-area">
       <div class="chat-header">
         <div class="nova-avatar">✦</div>
@@ -38,46 +40,38 @@
           <div class="nova-name">Nova</div>
           <div class="nova-status">Ready to help</div>
         </div>
-        <div style="margin-left:auto;display:flex;gap:8px">
+        <div style="margin-left:auto">
           <button class="btn-ghost btn-sm" onclick="clearChat()">Clear</button>
         </div>
       </div>
-
       <div class="chat-messages" id="chatMessages">
         <div class="chat-msg assistant">
-          👋 Hey! I'm <strong>Nova</strong>, your AI study tutor. I can help you understand concepts, solve problems, quiz you on topics, explain things step by step, and build study plans. What are we working on today?
+          <span class="msg-content">👋 Hey! I'm <strong>Nova</strong>, your AI study tutor. I can help you understand concepts, solve problems, quiz you, and build study plans. What are we working on today?</span>
         </div>
       </div>
-
       <div class="chat-input-area">
-        <textarea id="chatInput" class="chat-input" placeholder="Ask me anything... 'Explain Newton's laws', 'Quiz me on calculus', 'Help me plan my study session'" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <textarea id="chatInput" class="chat-input" placeholder="Ask me anything... 'Explain arrays', 'Quiz me on DSA', 'Help me plan my study session'" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
         <button class="send-btn" onclick="sendMessage()" id="sendBtn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
       </div>
     </div>
-
-    <!-- Right Panel -->
     <div class="sidebar-panel">
       <div class="card">
         <div class="card-title">QUICK PROMPTS</div>
         <button class="quick-prompt" onclick="setPrompt('Explain this concept simply: ')">📖 Explain a concept</button>
         <button class="quick-prompt" onclick="setPrompt('Quiz me on ')">🧠 Quiz me</button>
-        <button class="quick-prompt" onclick="setPrompt('I\'m stuck on this problem: ')">🤔 I\'m stuck</button>
+        <button class="quick-prompt" onclick="setPrompt('I am stuck on this problem: ')">🤔 I'm stuck</button>
         <button class="quick-prompt" onclick="setPrompt('Create a 30 min study plan for ')">📅 Study plan</button>
         <button class="quick-prompt" onclick="setPrompt('Summarize the key points of ')">📝 Summarize topic</button>
-        <button class="quick-prompt" onclick="setPrompt('What are common mistakes students make in ')">⚠️ Common mistakes</button>
+        <button class="quick-prompt" onclick="setPrompt('What are common mistakes in ')">⚠️ Common mistakes</button>
         <button class="quick-prompt" onclick="setPrompt('Give me 5 practice questions for ')">✏️ Practice questions</button>
-        <button class="quick-prompt" onclick="setPrompt('Explain with a real world example: ')">🌍 Real world example</button>
+        <button class="quick-prompt" onclick="setPrompt('Real world example of: ')">🌍 Real world example</button>
       </div>
-
       <div class="card" id="subjectsPanel">
         <div class="card-title">YOUR SUBJECTS</div>
-        <div id="subjectBtns">
-          <div class="text-sm text-muted">Loading...</div>
-        </div>
+        <div id="subjectBtns"><div class="text-sm text-muted">Loading...</div></div>
       </div>
-
       <div class="card" style="background:rgba(124,111,247,0.06);border-color:rgba(124,111,247,0.2)">
         <div class="card-title" style="color:var(--accent2)">💡 TIP</div>
         <p class="text-xs text-muted" style="line-height:1.6">Be specific for best results. Instead of "explain chemistry", try "explain how ionic bonds form with an example".</p>
@@ -89,26 +83,42 @@
 
 {% block extra_js %}
 <script>
-let chatHistory = [];
+var chatHistory = [];
+
+function renderMd(text) {
+  var t = text;
+  t = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  t = t.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  t = t.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+  t = t.replace(/^### (.+)$/gm, '<div style="font-weight:700;color:var(--accent2);margin:8px 0 2px">$1</div>');
+  t = t.replace(/^## (.+)$/gm, '<div style="font-weight:700;font-size:1.05rem;color:var(--accent2);margin:10px 0 3px">$1</div>');
+  t = t.replace(/^# (.+)$/gm, '<div style="font-weight:800;font-size:1.1rem;color:var(--accent2);margin:12px 0 4px">$1</div>');
+  t = t.replace(/^\d+\. (.+)$/gm, '<div class="bullet">• $1</div>');
+  t = t.replace(/^[*-] (.+)$/gm, '<div class="bullet">• $1</div>');
+  t = t.replace(/\n\n/g, '<br><br>');
+  t = t.replace(/\n/g, '<br>');
+  return t;
+}
 
 async function loadSubjects() {
-  const res = await fetch('/api/subjects');
-  const subjects = await res.json();
-  const el = document.getElementById('subjectBtns');
+  var res = await fetch('/api/subjects');
+  var subjects = await res.json();
+  var el = document.getElementById('subjectBtns');
   if (!subjects.length) {
     el.innerHTML = '<div class="text-xs text-muted">Add subjects in Planner</div>';
     return;
   }
-  el.innerHTML = subjects.map(s => `
-    <button class="subject-btn" onclick="setPrompt('Help me study ${s.name}: ')">
-      <span style="width:8px;height:8px;border-radius:50%;background:${s.color};flex-shrink:0"></span>
-      ${s.name}
-    </button>
-  `).join('');
+  el.innerHTML = subjects.map(function(s) {
+    return '<button class="subject-btn" onclick="setPrompt(\'Help me study ' + s.name + ': \')">' +
+      '<span style="width:8px;height:8px;border-radius:50%;background:' + s.color + ';flex-shrink:0;display:inline-block"></span>' +
+      s.name + '</button>';
+  }).join('');
 }
 
 function setPrompt(text) {
-  const input = document.getElementById('chatInput');
+  var input = document.getElementById('chatInput');
   input.value = text;
   input.focus();
   autoResize(input);
@@ -127,45 +137,47 @@ function handleKey(e) {
 }
 
 async function sendMessage() {
-  const input = document.getElementById('chatInput');
-  const msg = input.value.trim();
+  var input = document.getElementById('chatInput');
+  var msg = input.value.trim();
   if (!msg) return;
-
-  const apiKey = localStorage.getItem('sm_api_key') || '';
+  var apiKey = localStorage.getItem('sm_api_key') || '';
   input.value = '';
   autoResize(input);
-
-  appendMsg('user', msg);
+  appendMsg('user', msg, false);
   chatHistory.push({ role: 'user', content: msg });
-
-  const typing = appendTyping();
-
-  const res = await fetch('/api/ai/tutor', {
+  var typing = appendTyping();
+  var res = await fetch('/api/ai/tutor', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message: msg, api_key: apiKey, history: chatHistory.slice(-10) })
   });
-  const data = await res.json();
+  var data = await res.json();
   typing.remove();
-
-  appendMsg('assistant', data.response);
+  appendMsg('assistant', data.response, true);
   chatHistory.push({ role: 'assistant', content: data.response });
   scrollBottom();
 }
 
-function appendMsg(role, content) {
-  const el = document.getElementById('chatMessages');
-  const div = document.createElement('div');
-  div.className = `chat-msg ${role}`;
-  div.textContent = content;
+function appendMsg(role, content, useMarkdown) {
+  var el = document.getElementById('chatMessages');
+  var div = document.createElement('div');
+  div.className = 'chat-msg ' + role;
+  var span = document.createElement('span');
+  span.className = 'msg-content';
+  if (useMarkdown && role === 'assistant') {
+    span.innerHTML = renderMd(content);
+  } else {
+    span.textContent = content;
+  }
+  div.appendChild(span);
   el.appendChild(div);
   scrollBottom();
   return div;
 }
 
 function appendTyping() {
-  const el = document.getElementById('chatMessages');
-  const div = document.createElement('div');
+  var el = document.getElementById('chatMessages');
+  var div = document.createElement('div');
   div.className = 'chat-msg typing';
   div.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
   el.appendChild(div);
@@ -174,17 +186,14 @@ function appendTyping() {
 }
 
 function scrollBottom() {
-  const el = document.getElementById('chatMessages');
+  var el = document.getElementById('chatMessages');
   el.scrollTop = el.scrollHeight;
 }
 
 function clearChat() {
   chatHistory = [];
-  document.getElementById('chatMessages').innerHTML = `
-    <div class="chat-msg assistant">
-      Chat cleared! What would you like to study? 🎯
-    </div>
-  `;
+  document.getElementById('chatMessages').innerHTML =
+    '<div class="chat-msg assistant"><span class="msg-content">Chat cleared! What would you like to study? 🎯</span></div>';
 }
 
 loadSubjects();
