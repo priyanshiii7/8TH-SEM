@@ -1,2 +1,40 @@
+# ── Environment & Secrets (NEVER commit these) ────────────────────────────────
 .env
-Procfile
+.env.local
+.env.production
+.env.*.local
+*.key
+secrets.py
+
+# ── Database ───────────────────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+instance/
+
+# ── Python ─────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.pyc
+venv/
+env/
+.venv/
+.env/
+ENV/
+
+# ── Flask ──────────────────────────────────────────────────────────────────────
+flask_session/
+
+# ── OS ─────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editor ─────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
