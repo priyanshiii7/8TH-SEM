@@ -35,6 +35,9 @@ GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'studymate-secret-2024-change-in-prod')
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = False  # Set True in production (HTTPS)
+app.config['SESSION_COOKIE_HTTPONLY'] = True
 # Use PostgreSQL in production (Railway/Render), SQLite locally
 _db_url = os.environ.get('DATABASE_URL', 'sqlite:///studymate.db')
 # Railway gives postgres:// but SQLAlchemy needs postgresql://
