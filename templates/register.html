@@ -7,20 +7,20 @@
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/main.css">
   <style>
-    .step { display: none; }
-    .step.active { display: block; }
-    .step-indicator { display: flex; gap: 6px; margin-bottom: 24px; }
-    .step-dot { height: 4px; flex: 1; border-radius: 4px; background: var(--border2); transition: background 0.3s; }
-    .step-dot.done { background: var(--accent); }
-    .subject-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; animation: fadeUp 0.2s ease; }
-    .subject-row input { flex: 1; }
-    .remove-btn { width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--border2); color: var(--text2); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: all 0.2s; font-size: 1rem; background: transparent; }
-    .remove-btn:hover { border-color: var(--red); color: var(--red); }
-    .subject-hint { font-size: 0.75rem; color: var(--text2); margin-bottom: 12px; line-height: 1.55; }
-    .skip-link { text-align: center; margin-top: 10px; font-size: 0.8rem; color: var(--text2); }
-    .skip-link span { cursor: pointer; text-decoration: underline; }
-    .skip-link span:hover { color: var(--text); }
-    @keyframes fadeUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+    .google-btn { width:100%; padding:11px; border-radius:var(--radius-sm); border:1px solid var(--border2); background:var(--bg3); color:var(--text); font-size:0.88rem; font-weight:500; display:flex; align-items:center; justify-content:center; gap:10px; cursor:pointer; transition:all 0.2s; font-family:var(--font-body); text-decoration:none; margin-bottom:4px; }
+    .google-btn:hover { background:var(--card2); transform:translateY(-1px); }
+    .divider { display:flex; align-items:center; gap:12px; font-size:0.75rem; color:var(--text2); margin:14px 0; }
+    .divider::before, .divider::after { content:''; flex:1; height:1px; background:var(--border); }
+    .step { display:none; } .step.active { display:block; }
+    .step-indicator { display:flex; gap:6px; margin-bottom:24px; }
+    .step-dot { height:4px; flex:1; border-radius:4px; background:var(--border2); transition:background 0.3s; }
+    .step-dot.done { background:var(--accent); }
+    .subject-row { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+    .remove-btn { width:32px; height:32px; border-radius:6px; border:1px solid var(--border2); color:var(--text2); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; transition:all 0.2s; background:transparent; font-size:1rem; }
+    .remove-btn:hover { border-color:var(--red); color:var(--red); }
+    .oauth-note { font-size:0.72rem; color:var(--text2); text-align:center; margin-top:8px; line-height:1.5; }
+    .skip-link { text-align:center; margin-top:10px; font-size:0.8rem; color:var(--text2); }
+    .skip-link span { cursor:pointer; text-decoration:underline; }
   </style>
 </head>
 <body>
@@ -37,6 +37,19 @@
       <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem">StudyMate</span>
       <span class="logo-tag">AI</span>
     </div>
+
+    <!-- Google signup — fastest path -->
+    <a href="/auth/google" class="google-btn">
+      <svg width="18" height="18" viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+      </svg>
+      Sign up with Google
+    </a>
+    <div class="divider">or create account with email</div>
+
     <div class="step-indicator">
       <div class="step-dot done" id="dot1"></div>
       <div class="step-dot" id="dot2"></div>
@@ -47,7 +60,7 @@
       <p class="auth-sub">Step 1 of 2 — Your details</p>
       <div class="form-group">
         <label class="form-label">Full Name</label>
-        <input type="text" id="name" class="input" placeholder="John Doe">
+        <input type="text" id="name" class="input" placeholder="Priyanshi Rathore">
       </div>
       <div class="form-group">
         <label class="form-label">Email</label>
@@ -65,12 +78,12 @@
     <div class="step" id="step2">
       <h1 class="auth-title">Your subjects 📚</h1>
       <p class="auth-sub">Step 2 of 2 — AI uses these to personalize everything</p>
-      <p class="subject-hint">Add subjects you're studying now. Add exam dates and the AI will build a day-by-day countdown plan for each one.</p>
+      <p style="font-size:0.75rem;color:var(--text2);margin-bottom:12px;line-height:1.55">Add subjects you're studying. Add exam dates and the AI will build a day-by-day countdown plan.</p>
       <div id="subjectsContainer"></div>
       <button class="btn-ghost w-full" style="justify-content:center;margin-bottom:12px;font-size:0.85rem" onclick="addSubjectRow()">+ Add another subject</button>
       <div class="error-msg" id="step2Error"></div>
       <button class="btn-primary w-full" style="justify-content:center" onclick="handleRegister()" id="regBtn">Create Account ✦</button>
-      <div class="skip-link"><span onclick="skipSubjects()">Skip — I'll add subjects later</span></div>
+      <div class="skip-link"><span onclick="skipSubjects()">Skip — add subjects later</span></div>
     </div>
   </div>
 </div>
@@ -96,7 +109,7 @@ function addSubjectRow() {
   const c = document.getElementById('subjectsContainer');
   const row = document.createElement('div');
   row.className = 'subject-row'; row.id = 'srow-' + id;
-  row.innerHTML = `<input type="text" class="input subj-name" placeholder="Subject name e.g. Cybersecurity" style="flex:2"><input type="date" class="input subj-date" title="Exam date (optional)" style="flex:1;font-size:0.78rem"><button class="remove-btn" onclick="removeRow(${id})">×</button>`;
+  row.innerHTML = '<input type="text" class="input subj-name" placeholder="Subject e.g. DSA, Cybersecurity" style="flex:2"><input type="date" class="input subj-date" title="Exam date (optional)" style="flex:1;font-size:0.78rem"><button class="remove-btn" onclick="removeRow(' + id + ')">×</button>';
   c.appendChild(row);
 }
 function removeRow(id) {

@@ -7,6 +7,9 @@ import os
 import re
 import urllib.request
 import urllib.error
+import urllib.parse
+import secrets
+import hashlib
 
 # Load .env file in development
 try:
@@ -19,6 +22,13 @@ except ImportError:
 # Set this in your .env file or Railway/Render environment variables
 # GEMINI_API_KEY=your_key_here
 SERVER_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+
+# ─── Google OAuth ─────────────────────────────────────────────────────────────
+GOOGLE_CLIENT_ID     = os.environ.get('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+GOOGLE_AUTH_URL      = 'https://accounts.google.com/o/oauth2/v2/auth'
+GOOGLE_TOKEN_URL     = 'https://oauth2.googleapis.com/token'
+GOOGLE_USERINFO_URL  = 'https://www.googleapis.com/oauth2/v3/userinfo'
 
 # ─── Server-side API key — set in environment, never exposed to users ─────────
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
@@ -44,6 +54,8 @@ class User(db.Model):
     password = db.Column(db.String(200), nullable=False)
     avatar_color = db.Column(db.String(20), default='#6C63FF')
     avatar_b64 = db.Column(db.Text, nullable=True)
+    google_id  = db.Column(db.String(100), nullable=True, unique=True)
+    auth_type  = db.Column(db.String(20), default='email')  # 'email' or 'google'
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     subjects = db.relationship('Subject', backref='user', lazy=True, cascade='all, delete-orphan')
     tasks = db.relationship('Task', backref='user', lazy=True, cascade='all, delete-orphan')
@@ -305,6 +317,106 @@ def register():
 def logout():
     session.clear()
     return redirect(url_for('login'))
+
+
+# ─── Google OAuth Routes ──────────────────────────────────────────────────────
+
+@app.route('/auth/google')
+def google_login():
+    if not GOOGLE_CLIENT_ID:
+        return redirect(url_for('login') + '?error=oauth_not_configured')
+    state = secrets.token_urlsafe(32)
+    session['oauth_state'] = state
+    base_url = os.environ.get('APP_URL', 'http://localhost:5000')
+    params = {
+        'client_id': GOOGLE_CLIENT_ID,
+        'redirect_uri': f"{base_url}/auth/callback",
+        'response_type': 'code',
+        'scope': 'openid email profile',
+        'state': state,
+        'access_type': 'online',
+    }
+    url = GOOGLE_AUTH_URL + '?' + urllib.parse.urlencode(params)
+    return redirect(url)
+
+
+@app.route('/auth/callback')
+def google_callback():
+    error = request.args.get('error')
+    if error:
+        return redirect(url_for('login') + '?error=' + error)
+    state = request.args.get('state')
+    if state != session.pop('oauth_state', None):
+        return redirect(url_for('login') + '?error=invalid_state')
+    code = request.args.get('code')
+    if not code:
+        return redirect(url_for('login') + '?error=no_code')
+    base_url = os.environ.get('APP_URL', 'http://localhost:5000')
+    redirect_uri = f"{base_url}/auth/callback"
+    token_data = urllib.parse.urlencode({
+        'code': code,
+        'client_id': GOOGLE_CLIENT_ID,
+        'client_secret': GOOGLE_CLIENT_SECRET,
+        'redirect_uri': redirect_uri,
+        'grant_type': 'authorization_code',
+    }).encode('utf-8')
+    try:
+        token_req = urllib.request.Request(
+            GOOGLE_TOKEN_URL, data=token_data,
+            headers={'Content-Type': 'application/x-www-form-urlencoded'}
+        )
+        with urllib.request.urlopen(token_req, timeout=10) as resp:
+            tokens = json.loads(resp.read().decode())
+    except Exception as e:
+        return redirect(url_for('login') + '?error=token_failed')
+    access_token = tokens.get('access_token')
+    if not access_token:
+        return redirect(url_for('login') + '?error=no_token')
+    try:
+        info_req = urllib.request.Request(
+            GOOGLE_USERINFO_URL,
+            headers={'Authorization': f'Bearer {access_token}'}
+        )
+        with urllib.request.urlopen(info_req, timeout=10) as resp:
+            user_info = json.loads(resp.read().decode())
+    except Exception:
+        return redirect(url_for('login') + '?error=userinfo_failed')
+    google_id = user_info.get('sub')
+    email     = user_info.get('email')
+    name      = user_info.get('name', email.split('@')[0] if email else 'User')
+    picture   = user_info.get('picture', '')
+    if not google_id or not email:
+        return redirect(url_for('login') + '?error=missing_info')
+    user = User.query.filter_by(google_id=google_id).first()
+    if not user:
+        existing = User.query.filter_by(email=email).first()
+        if existing:
+            existing.google_id = google_id
+            existing.auth_type = 'google'
+            db.session.commit()
+            user = existing
+        else:
+            import random, base64
+            colors = ['#5B7FFF','#F87171','#4ADE80','#38BDF8','#818CF8','#F472B6','#A78BFA','#34D399']
+            user = User(
+                name=name, email=email,
+                password=generate_password_hash(secrets.token_hex(32)),
+                avatar_color=random.choice(colors),
+                google_id=google_id, auth_type='google'
+            )
+            if picture:
+                try:
+                    pic_req = urllib.request.Request(picture)
+                    with urllib.request.urlopen(pic_req, timeout=5) as pr:
+                        pic_data = base64.b64encode(pr.read()).decode()
+                        user.avatar_b64 = f"data:image/jpeg;base64,{pic_data}"
+                except:
+                    pass
+            db.session.add(user)
+            db.session.commit()
+    session['user_id']   = user.id
+    session['user_name'] = user.name
+    return redirect(url_for('dashboard'))
 
 # ─── Page Routes ──────────────────────────────────────────────────────────────
 
@@ -795,7 +907,7 @@ def get_api_key():
 def ai_status():
     return jsonify({'available': bool(GEMINI_API_KEY)})
 
-# ─── Run ──────────────────────────────────────────────────────────────────────
+# ─── Run ─────────────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
     with app.app_context():
