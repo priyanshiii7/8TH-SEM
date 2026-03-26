@@ -689,7 +689,7 @@ def save_journal():
     if GEMINI_API_KEY:
         try:
             ai_reflection = call_ai(
-                api_key,
+                '',
                 f"A student wrote this journal entry: '{data['content']}'\n\nWrite a warm 2-3 sentence reflection. Acknowledge feelings, highlight something positive, give one actionable insight for tomorrow. Be genuine not generic."
             )
         except:
