@@ -330,6 +330,7 @@ def google_login():
         return redirect(url_for('login') + '?error=oauth_not_configured')
     state = secrets.token_urlsafe(32)
     session['oauth_state'] = state
+    session.modified = True
     base_url = os.environ.get('APP_URL', 'http://localhost:5000')
     params = {
         'client_id': GOOGLE_CLIENT_ID,
