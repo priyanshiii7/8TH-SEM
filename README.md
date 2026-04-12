@@ -5,7 +5,7 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-3.x-000000?style=flat-square&logo=flask&logoColor=white)](https://flask.palletsprojects.com)
 [![Gemini](https://img.shields.io/badge/Gemini_API-Google-4285F4?style=flat-square&logo=google&logoColor=white)](https://aistudio.google.com)
-[![Deployed](https://img.shields.io/badge/Deployed-Railway-0B0D0E?style=flat-square&logo=railway&logoColor=white)](https://railway.app)
+[![Deployed](https://img.shields.io/badge/Deployed-Render-0B0D0E?style=flat-square&logo=render&logoColor=white)](https://render.app)
 [![Status](https://img.shields.io/badge/Status-Live-brightgreen?style=flat-square)]()
 
 ---
@@ -14,9 +14,9 @@
 
 StudyMate AI is a web application that gives students an intelligent study companion powered by Google's Gemini LLM. Ask it to explain concepts, quiz you on material, summarise notes, or help you understand difficult topics — all through a clean, responsive web interface.
 
-Built end-to-end: from the Flask backend and session management to frontend templating and production deployment on Railway.
+Built end-to-end: from the Flask backend and session management to frontend templating and production deployment on Render.
 
-**Live demo:** *(add your Railway URL here)*
+**Live demo:** : https://studymate-v6yz.onrender.com/
 
 ---
 
@@ -27,7 +27,7 @@ Built end-to-end: from the Flask backend and session management to frontend temp
 - 🎯 **Concept explanation** — ask it to explain anything at multiple difficulty levels
 - 🔐 **Session management** — per-user conversation context with Flask sessions
 - 📱 **Responsive UI** — works on desktop and mobile
-- ☁️ **Production deployed** — live on Railway with PostgreSQL
+- ☁️ **Production deployed** — live on Render with PostgreSQL
 
 ---
 
@@ -39,7 +39,7 @@ Built end-to-end: from the Flask backend and session management to frontend temp
 | AI / LLM | Google Gemini API |
 | Database | SQLite (dev) → PostgreSQL (prod) |
 | Frontend | HTML, CSS, JavaScript (Jinja2 templates) |
-| Deployment | Railway |
+| Deployment | Render |
 | Config | python-dotenv, environment variables |
 
 ---
@@ -54,7 +54,7 @@ Built end-to-end: from the Flask backend and session management to frontend temp
 ├── static/             # CSS, JS, assets
 ├── instance/           # SQLite DB (local only, gitignored)
 ├── requirements.txt
-├── Procfile            # Railway/Heroku process config
+├── Procfile            # Render/Heroku process config
 ├── runtime.txt         # Python version pin
 ├── .env.example        # Environment variable template
 └── DEPLOY.md           # Deployment guide
@@ -69,7 +69,7 @@ Built end-to-end: from the Flask backend and session management to frontend temp
 git clone https://github.com/priyanshiii7/8TH-SEM.git
 cd 8TH-SEM
 
-# 2. Create virtual environment
+# 2. Create a virtual environment
 python -m venv venv
 source venv/bin/activate    # Windows: venv\Scripts\activate
 
@@ -95,7 +95,6 @@ App runs at `http://localhost:5000`
 |---|---|---|
 | `GEMINI_API_KEY` | Google Gemini API key | [aistudio.google.com](https://aistudio.google.com) — free |
 | `SECRET_KEY` | Flask session secret | Any random 50-char string |
-| `DATABASE_URL` | PostgreSQL connection string | Auto-set by Railway |
 
 ---
 
@@ -117,4 +116,7 @@ Rendered Template → User
 
 ---
 
-**Built by [Priyanshi Rathore](https://linkedin.com/in/priyanshi-rathore-11b072217) · Bikaner, India**
+**Built by:
+[Priyanshi Rathore]
+[Harshika Saxena]
+Bikaner, India**
